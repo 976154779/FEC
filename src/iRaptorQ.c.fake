@@ -1,0 +1,73 @@
+/*----------------------------------------------------------------
+File Name  : iRaptorQ.h
+Author     : Winglab
+Data	   : 2016-12-29
+Description:
+Support the middle interface between this Project and
+libRaptorQ .
+------------------------------------------------------------------*/
+#include"iRaptorQ.h"
+void iRaptorQ_pre()
+{
+
+}
+
+struct RaptorQ_ptr *iRaptorQ_Enc(void *data, int len)
+{
+	return NULL;
+}
+
+struct RaptorQ_ptr *iRaptorQ_Dec()
+{
+	return NULL;
+}
+
+void iRaptorQ_encode_id(struct RaptorQ_ptr *enc, raptorQPacket_t  *ppac, uint32_t tag, uint8_t sbn, uint32_t esi)
+{
+	ppac->tag = tag;
+	ppac->id = esi;//RaptorQ_id(esi, sbn);
+	void *ptr = ppac->data;
+
+	//if (RaptorQ_encode_id(enc, (void **)&ptr, SYMBOL_SIZE, ppac->id) != SYMBOL_SIZE)
+	//	pr_error("failed to encode symbol\n");
+}
+
+int iRaptorQ_add_symbol_id(struct RaptorQ_ptr *dec, raptorQPacket_t *ppac)
+{
+	void *ptr = ppac->data;
+
+	//return RaptorQ_add_symbol_id(dec, (void **)&ptr, SYMBOL_SIZE, ppac->id);
+	return 1;
+}
+
+int iRaptorQ_decode(struct RaptorQ_ptr *dec, raptorQBlock_t *pblk)
+{
+	void *ptr = pblk->data;
+
+	//return (RaptorQ_decode(dec, (void **)&ptr, BLOCK_SIZE) == BLOCK_SIZE);
+	return 1;
+}
+void iRaptorQCreateBlock(raptorQBlock_t *_pBlock, uint8_t *_pBlockData, uint32_t _tag)
+{
+	_pBlock->tag = _tag;
+	memcpy(_pBlock->data, _pBlockData, BLOCK_SIZE);
+}
+void iRaptorQPack(ringBuffer_t * _pRb, raptorQBlock_t *pBlock)
+{
+	raptorQPacket_t packet;
+	uint8_t *pSymbol = pBlock->data;
+	for (int esi = 0; esi < BLOCK_SYMBOL_NUMBER; esi++)
+	{
+		packet.tag = pBlock->tag;
+		//packet.id = RaptorQ_id(esi, 0);
+		packet.id = esi;
+		memcpy(packet.data,pSymbol,SYMBOL_SIZE);
+		RingBufferPut(_pRb,&packet);
+		pSymbol += SYMBOL_SIZE;
+	}
+
+}
+uint32_t iRaptorQ_max_repair(struct RaptorQ_ptr *enc, int xx) 
+{
+	return 0xFFFFFFFF;
+}

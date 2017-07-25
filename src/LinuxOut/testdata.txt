@@ -1,0 +1,10 @@
+1. raptorq encode time: 3~5ms
+2. source time:11~18ms
+3. block collect time:11~12ms
+4. feedback process time: 0~11ms
+5. receive process time: 0ms
+6. decoder create, add packets and decode time : 2~6ms
+7. source priority create time: 0 ms
+8. source initialize part time: 0 ms
+9. decode time : 2~5ms
+10. packet delay: 0~4ms
