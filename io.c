@@ -64,11 +64,11 @@ void _IOUnpack(uint8_t* _symbol);
 static iClock_t autoFillClock = 0;
 
 //edited by ZhangYong
-//Ôö¼ÓdataUnit_t½á¹¹Ìå
-//@ËµÃ÷£º´ò°üÔ´Êı¾İ¹¹³É»ù±¾µ¥ÔªµÄ½á¹¹Ìå
+//å¢åŠ dataUnit_tç»“æ„ä½“
+//@è¯´æ˜ï¼šæ‰“åŒ…æºæ•°æ®æ„æˆåŸºæœ¬å•å…ƒçš„ç»“æ„ä½“
 typedef struct dataUnit_t {
-	char flag;//±êÖ¾Î» 
-	uint16_t len;//dataµÄÊı¾İµÄ³¤¶È
+	char flag;//æ ‡å¿—ä½ 
+	uint16_t len;//dataçš„æ•°æ®çš„é•¿åº¦
 	iClock_t ts;
 	uint8_t data[0];
 }dataUnit_t;
@@ -154,258 +154,229 @@ while (restPacketLen) {
 }
 
 /*
-@ËµÃ÷£º´ÓrbDataUnitÖĞ»ñÈ¡dataUnit£¬È»ºó¶à¸ödataUnitÆ´½Ó³öSymbol¡£Ã¿´ÎÆ´´Õ³öÒ»¸öSymbolÔò·µ»Ø¡£
-½«SymbolµÄÖµ¸´ÖÆµ½_symbolÖĞ¡£º¯ÊıÖĞÓĞÖ´ĞĞÊ±¼äÏŞÖÆ¡£
-@Ï¸½Ú£º
-1£©Ã¿¸öSymbol×î¶àµÄÆ´½ÓÊ±³¤²»³¬¹ıSYMBOL_TIME(3ms)£¬Í¬Ê±´Ó¸ÃAttachSymbolº¯Êı¿ªÊ¼×ÜÊ±¼ä²»³¬¹ı_timeRest£¬ËùÒÔ´Ó»º³åÖĞ»ñÈ¡Ê¹ÓÃRingBufferTimedGet(rbDataUnit, ... )·½Ê½£»
-2£©´Ó»ñÈ¡µ½SymbolÀï×îÏÈµÄdataUnit¿ªÊ¼¼´Éè¶¨Ò»¸öÊ±¼ä´Á£¬½ÓÏÂÀ´µÄBufferGet¶¼¼ÆËã²¢¸³ÓèÊ£ÓàµÄÊ±¼ä£¬Ê£ÓàÊ±¼äÂú×ã£¨1£©ÖĞÁ½¸öÒªÇó£»
-3£©Èç¹ûBufferGet·µ»ØµÄÊÇ³¬Ê±ÔòÔÚSymbol½ÓÏÂÀ´ĞèÒªÌî³äµÄ×Ö½ÚÌî¡¯F¡¯½áÊø±ê¼Ç£¬±íÊ¾´ËSymbolÆ´½ÓÍê³É£¬º¯Êı·µ»Ø¡£
-4£©ÌáÊ¾£ºÒòÎªÃ¿´Î·µ»ØÊä³öÒ»¸öSymbol£¬Ê±¼äµ½È´Æ´½Ó²»ÂúÔò¼Ó¡®F¡¯½áÊø£¬dataUnit³¤¶È³¬¹ıSymbolÊ£Óà¿Õ¼äÔòĞèÒª·Ö¸î£¬º¯ÊıÖĞ¿ÉÒÔÉèÖÃ¾²Ì¬±äÁ¿±£´æµ±Ç°×´Ì¬¡£
+@è¯´æ˜ï¼šä»rbDataUnitä¸­è·å–dataUnitï¼Œç„¶åå¤šä¸ªdataUnitæ‹¼æ¥å‡ºSymbolã€‚æ¯æ¬¡æ‹¼å‡‘å‡ºä¸€ä¸ªSymbolåˆ™è¿”å›ã€‚
+å°†Symbolçš„å€¼å¤åˆ¶åˆ°_symbolä¸­ã€‚å‡½æ•°ä¸­æœ‰æ‰§è¡Œæ—¶é—´é™åˆ¶ã€‚
+@ç»†èŠ‚ï¼š
+1ï¼‰æ¯ä¸ªSymbolæœ€å¤šçš„æ‹¼æ¥æ—¶é•¿ä¸è¶…è¿‡SYMBOL_TIME(3ms)ï¼ŒåŒæ—¶ä»è¯¥AttachSymbolå‡½æ•°å¼€å§‹æ€»æ—¶é—´ä¸è¶…è¿‡_timeRestï¼Œæ‰€ä»¥ä»ç¼“å†²ä¸­è·å–ä½¿ç”¨RingBufferTimedGet(rbDataUnit, ... )æ–¹å¼ï¼›
+2ï¼‰ä»è·å–åˆ°Symbolé‡Œæœ€å…ˆçš„dataUnitå¼€å§‹å³è®¾å®šä¸€ä¸ªæ—¶é—´æˆ³ï¼Œæ¥ä¸‹æ¥çš„BufferGetéƒ½è®¡ç®—å¹¶èµ‹äºˆå‰©ä½™çš„æ—¶é—´ï¼Œå‰©ä½™æ—¶é—´æ»¡è¶³ï¼ˆ1ï¼‰ä¸­ä¸¤ä¸ªè¦æ±‚ï¼›
+3ï¼‰å¦‚æœBufferGetè¿”å›çš„æ˜¯è¶…æ—¶åˆ™åœ¨Symbolæ¥ä¸‹æ¥éœ€è¦å¡«å……çš„å­—èŠ‚å¡«â€™Fâ€™ç»“æŸæ ‡è®°ï¼Œè¡¨ç¤ºæ­¤Symbolæ‹¼æ¥å®Œæˆï¼Œå‡½æ•°è¿”å›ã€‚
+4ï¼‰æç¤ºï¼šå› ä¸ºæ¯æ¬¡è¿”å›è¾“å‡ºä¸€ä¸ªSymbolï¼Œæ—¶é—´åˆ°å´æ‹¼æ¥ä¸æ»¡åˆ™åŠ â€˜Fâ€™ç»“æŸï¼ŒdataUnité•¿åº¦è¶…è¿‡Symbolå‰©ä½™ç©ºé—´åˆ™éœ€è¦åˆ†å‰²ï¼Œå‡½æ•°ä¸­å¯ä»¥è®¾ç½®é™æ€å˜é‡ä¿å­˜å½“å‰çŠ¶æ€ã€‚
 */
 //edited by ZhangYong
 bool AttachSymbol( uint8_t *_symbol, iClock_t _timeRest) {
-	if (_timeRest < SYMBOL_TIME) {									//¹¹½¨BlockÊ£ÓàµÄÊ±¼äĞ¡ÓÚ¹¹½¨SymbolÊ£ÓàµÄÊ±¼ä
-		return 0;
+	if (_timeRest < SYMBOL_TIME) { //æ„å»ºBlockå‰©ä½™çš„æ—¶é—´å°äºæ„å»ºSymbolå‰©ä½™çš„æ—¶é—´
+		return 0; 
 	}
-	static uint8_t buff[MAX_UDP_DATA_SIZE + sizeof(dataUnit_t)];		//ÔİÊ±±£´æ½«Òª±£´æµ½_symbolÖĞÈ¥µÄunit  //±ØĞë±£´æÎª³£Á¿
-	
-	static uint16_t restDataUnitLen =0;										//£¨Êµ¼ÊÉÏ»¹Ã»ÓĞ×°ÈësymbolµÄ£©Ê£ÓàµÄdataUnit³¤¶È	//±ØĞë±£´æÎª³£Á¿
-	static uint16_t restSymbolLen = SYMBOL_SIZE;						//Ê£ÓàµÄsymbol³¤¶È	//±ØĞë±£´æÎª³£Á¿
-	
-	static uint8_t *pBuff = buff;										//Ö¸ÕëÖ¸Ïòbuff	//±ØĞë±£´æÎª³£Á¿
-	uint8_t *pSymbol = _symbol;											//Ö¸ÕëÖ¸Ïò_symbol	//º¯ÊıÃ¿µ÷ÓÃÒ»´Î£¬ÔòÖØĞÂ´´½¨Ò»¸öÖ¸ÏòsymbolµÄÖ¸Õë
-	
-	static iClock_t SymbolTimeRest = SYMBOL_TIME;						//¹¹½¨SymbolÊ£ÓàµÄÊ±¼ä  ³õÊ¼»¯Ê±¼äÎª3ms		//±ØĞë±£´æÎª³£Á¿
-	static iClock_t TimeStart = 0;
+	static uint8_t buff[MAX_UDP_DATA_SIZE + sizeof(dataUnit_t)];		//æš‚æ—¶ä¿å­˜å°†è¦ä¿å­˜åˆ°_symbolä¸­å»çš„unit  //å¿…é¡»ä¿å­˜ä¸ºå¸¸é‡
 
-	bool hasGetDataUnit = 0;	//ÓÃÈ¥È·¶¨±¾´ÎattachSymbolº¯ÊıÊÇ·ñĞèÒªÖØĞÂ»ñÈ¡Ò»¸ödataUnit
+	static uint16_t restDataUnitLen =0;										//ï¼ˆå®é™…ä¸Šè¿˜æ²¡æœ‰è£…å…¥symbolçš„ï¼‰å‰©ä½™çš„dataUnité•¿åº¦	//å¿…é¡»ä¿å­˜ä¸ºå¸¸é‡
+	static uint16_t restSymbolLen = SYMBOL_SIZE;						//å‰©ä½™çš„symbolé•¿åº¦	//å¿…é¡»ä¿å­˜ä¸ºå¸¸é‡
+	
+	static uint8_t *pBuff = buff;										//æŒ‡é’ˆæŒ‡å‘buff	//å¿…é¡»ä¿å­˜ä¸ºå¸¸é‡
+	uint8_t *pSymbol = _symbol;											//æŒ‡é’ˆæŒ‡å‘_symbol	//å‡½æ•°æ¯è°ƒç”¨ä¸€æ¬¡ï¼Œåˆ™é‡æ–°åˆ›å»ºä¸€ä¸ªæŒ‡å‘symbolçš„æŒ‡é’ˆ
+	
+	static iClock_t SymbolTimeRest = SYMBOL_TIME;						//æ„å»ºSymbolå‰©ä½™çš„æ—¶é—´  åˆå§‹åŒ–æ—¶é—´ä¸º3ms		//å¿…é¡»ä¿å­˜ä¸ºå¸¸é‡
+	iClock_t TimeStart = 0;
 
-	if (restDataUnitLen == 0) {	//restDataUnitLen = 0; ±íÊ¾ÉÏÒ»¸ödataUnitÒÑ¾­ÓÃÍêÁË£¬ĞèÒªÖØĞÂ»ñÈ¡Ò»¸ödataUnit
-		//ÏÈÈ¡µÚÒ»¸ödataUnit
-		RingBufferGet(rbDataUnit, buff);	//´ÓrbDataUnitÖĞ»ñÈ¡dataUnit£¬·Åµ½pBuffËùÖ¸ÏòµÄµØÖ·ÀïÈ¥
+	bool hasGetDataUnit = 0;	//ç”¨å»ç¡®å®šæœ¬æ¬¡attachSymbolå‡½æ•°æ˜¯å¦éœ€è¦é‡æ–°è·å–ä¸€ä¸ªdataUnit
+
+	if (restDataUnitLen == 0) {	// è¡¨ç¤ºä¸Šä¸€ä¸ªdataUnitå·²ç»ç”¨å®Œäº†ï¼Œéœ€è¦é‡æ–°è·å–ä¸€ä¸ªdataUnit
+		//å…ˆå–ç¬¬ä¸€ä¸ªdataUnit
+		RingBufferGet(rbDataUnit, buff);	//ä»rbDataUnitä¸­è·å–dataUnitï¼Œæ”¾åˆ°pBuffæ‰€æŒ‡å‘çš„åœ°å€é‡Œå»
 		memcpy(restDataUnitLen, pBuff + 2, 2);
-		restDataUnitLen += sizeof(dataUnit_t);			//dataUnitµÄ£¨°üº¬Í·²¿£©³¤¶È
-		hasGetDataUnit = 1;		//±íÊ¾Ä¿Ç°»ñÈ¡µ½ÁËÒ»¸ödataUnit
+		restDataUnitLen += sizeof(dataUnit_t);			//åˆ·æ–°dataUnitçš„ï¼ˆåŒ…å«å¤´éƒ¨ï¼‰é•¿åº¦
+		hasGetDataUnit = 1;		//è¡¨ç¤ºç›®å‰è·å–åˆ°äº†ä¸€ä¸ªdataUnit
 	}
-	else if (restDataUnitLen > 0) {//Èç¹ûrestDataUnitLen>0, ÔòÉÏÒ»´Îµ÷ÓÃattachSymbolº¯Êı£¬Éú³ÉÁËÒ»¸ösymbolºó£¬Ò»¸ödataUnit»¹Ã»ÓĞÓÃÍê£¬ËùÒÔÕâ´Î²»ĞèÒªÔÙ»ñÈ¡ĞÂµÄdataUnit
-		hasGetDataUnit = 1;		//±íÊ¾Ä¿Ç°»¹ÊÇÉÏÒ»´ÎÃ»ÓÃÍêµÄdataUnit
+	else if (restDataUnitLen > 0) {//å¦‚æœrestDataUnitLen>0, åˆ™ä¸Šä¸€æ¬¡è°ƒç”¨attachSymbolå‡½æ•°ï¼Œç”Ÿæˆäº†ä¸€ä¸ªsymbolåï¼Œä¸€ä¸ªdataUnitè¿˜æ²¡æœ‰ç”¨å®Œï¼Œæ‰€ä»¥è¿™æ¬¡ä¸éœ€è¦å†è·å–æ–°çš„dataUnit
+		hasGetDataUnit = 1;		//è¡¨ç¤ºç›®å‰è¿˜æ˜¯ä¸Šä¸€æ¬¡æ²¡ç”¨å®Œçš„dataUnit
 	}
 
 	do {
-		TimeStart = iGetTime();						//»ñÈ¡µ±Ç°Ê±¼ä
+		TimeStart = iGetTime();						//è·å–å½“å‰æ—¶é—´
 
 		if (hasGetDataUnit == 0) {
-			//»ñÈ¡µÚ¶ş¸ö£¨µÚÈı¸ö¡­¡­£©dataUnit
+			//è·å–ç¬¬äºŒä¸ªï¼ˆç¬¬ä¸‰ä¸ªâ€¦â€¦ï¼‰dataUnit
 			if (RingBufferTimedGet(rbDataUnit, buff, SymbolTimeRest) == 1) {
 				memcpy(restDataUnitLen, pBuff + 2, 2);
-				restDataUnitLen += sizeof(dataUnit_t);		//»ñÈ¡buffÖĞËù·ÅÈëµÄdataUnitµÄ£¨°üº¬Í·²¿£©³¤¶È
-				hasGetDataUnit = 1;		//±íÊ¾Ä¿Ç°»ñÈ¡µ½ÁËÒ»¸ödataUnit
+				restDataUnitLen += sizeof(dataUnit_t);		//è·å–dataUnitçš„ï¼ˆåŒ…å«å¤´éƒ¨ï¼‰æ€»é•¿åº¦
+				hasGetDataUnit = 1;		//è¡¨ç¤ºç›®å‰è·å–åˆ°äº†ä¸€ä¸ªdataUnit
 			}
-			else {	//»ñÈ¡µÚn(n>=2)¸ödataUnit³¬Ê±ÁË£¬ËµÃ÷¹¹½¨SymbolÊ£ÓàµÄÊ±¼äÎª0ÁË
+			else {	//è·å–ç¬¬n(n>=2)ä¸ªdataUnitè¶…æ—¶äº†ï¼Œè¯´æ˜æ„å»ºSymbolå‰©ä½™çš„æ—¶é—´ä¸º0äº†
 				//symbol over
-				memcpy(pSymbol, 'F', 1);	//Èç¹ûBufferGet·µ»ØµÄÊÇ³¬Ê±ÔòÔÚSymbol½ÓÏÂÀ´ĞèÒªÌî³äµÄ×Ö½ÚÌî¡¯F¡¯½áÊø±ê¼Ç£¬±íÊ¾´ËSymbolÆ´½ÓÍê³É£¬º¯Êı·µ»Ø¡£
-				restSymbolLen = SYMBOL_SIZE;	//ÖØĞÂË¢ĞÂÒ»ÏÂËüµÄÖµ
+				memcpy(pSymbol, 'F', 1);	//å¦‚æœBufferGetè¿”å›çš„æ˜¯è¶…æ—¶åˆ™åœ¨Symbolæ¥ä¸‹æ¥éœ€è¦å¡«å……çš„å­—èŠ‚å¡«â€™Fâ€™ç»“æŸæ ‡è®°ï¼Œè¡¨ç¤ºæ­¤Symbolæ‹¼æ¥å®Œæˆï¼Œå‡½æ•°è¿”å›ã€‚
+				restSymbolLen = SYMBOL_SIZE;	//é‡æ–°åˆ·æ–°ä¸€ä¸‹å®ƒçš„å€¼
 				restDataUnitLen = 0;
-				SymbolTimeRest = SYMBOL_TIME;	//ÖØĞÂË¢ĞÂ¹¹½¨SymbolÊ£ÓàµÄÊ±¼ä
-				pSymbol = NULL;			//±íÊ¾Ò»¸ösymbolÒÑ¾­Éú³ÉÍêÁË
-				pBuff = buff;	//Ö¸ÕëÖØĞÂÖ¸ÏòbuffµÄ¿ªÍ·
-				return 1;		//Éú³ÉÁËÒ»¸ösymbol
+				SymbolTimeRest = SYMBOL_TIME;	//é‡æ–°åˆ·æ–°æ„å»ºSymbolå‰©ä½™çš„æ—¶é—´
+				pBuff = buff;	//æŒ‡é’ˆé‡æ–°æŒ‡å‘buffçš„å¼€å¤´
+				return 1;		//ç”Ÿæˆäº†ä¸€ä¸ªsymbol
 			}
 		}
 
-		if (restSymbolLen - restDataUnitLen > 0) {
-			//Unit over
-			memcpy(pSymbol, pBuff, restDataUnitLen);
+		uint16_t temp = restSymbolLen - restDataUnitLen;//nD=nS-SU
+		memcpy(pSymbol, pBuff, restSymbolLen > restDataUnitLen ? restDataUnitLen : restSymbolLen);
+		if (temp > 0) {//Unit over
 			//refresh restSymbolLen and restDataUnitLen 
 			restSymbolLen -= restDataUnitLen;
-			restDataUnitLen = 0;
-			pBuff = NULL;	//±íÊ¾Ò»¸öunitÒÑ¾­ÓÃÍê			
-			pSymbol += restDataUnitLen;		//symbolÖ¸ÕëºóÒÆ
-			pBuff = buff;	//Ö¸ÕëÖØĞÂÖ¸Ïòbuff
-			SymbolTimeRest -= (iGetTime() - TimeStart);		//¼õÉÙÏàÓ¦µÄSymbolÊ£ÓàµÄÊ±¼ä
-			hasGetDataUnit = 0;		//±íÊ¾½ÓÏÂÀ´ĞèÒª»ñÈ¡ÏÂÒ»¸ödataUnit
+			restDataUnitLen = 0;		
+			pSymbol += restDataUnitLen;		//symbolæŒ‡é’ˆåç§»
+			pBuff = buff;	//æŒ‡é’ˆé‡æ–°æŒ‡å‘buff
+			hasGetDataUnit = 0;		//è¡¨ç¤ºæ¥ä¸‹æ¥éœ€è¦è·å–ä¸‹ä¸€ä¸ªdataUnit
+			SymbolTimeRest -= (iGetTime() - TimeStart);		//å‡å°‘ç›¸åº”çš„Symbolå‰©ä½™çš„æ—¶é—´
 		}
-		else if (restSymbolLen - restDataUnitLen < 0) {
-			//symbol over
-			memcpy(pSymbol, pBuff, restSymbolLen);
+		else {//temp<=0
+			// <0 symbol over / =0 Unit over and symbol over
 			//refresh restSymbolLen and restDataUnitLen 
-			restDataUnitLen -= restSymbolLen;
-			pBuff = restSymbolLen;	//±íÊ¾Ò»¸öunitÒÑ¾­ÓÃÍê			
-			pSymbol = NULL;		//±íÊ¾Ò»¸ösymbolÒÑ¾­Éú³ÉÍêÁË
+			restDataUnitLen = temp < 0 ? restDataUnitLen - restSymbolLen : 0;
+			pBuff = temp < 0 ? pBuff + restSymbolLen : buff;	
 			restSymbolLen = SYMBOL_SIZE;
-			SymbolTimeRest = SYMBOL_TIME;		//ÖØĞÂË¢ĞÂ¹¹½¨SymbolµÄÊ£ÓàµÄÊ±¼ä
-			return 1;
-		}
-		else {
-			//Unit over and symbol over
-			memcpy(pSymbol, pBuff, restSymbolLen);//µÚÈı¸ö²ÎÊı»òÕßÌîrestDataUnitLen£¬¶¼Ò»Ñù
-			//refresh restSymbolLen and restDataUnitLen 
-			restDataUnitLen = 0;
-			restSymbolLen = SYMBOL_SIZE;
-			pBuff = NULL;	//±íÊ¾Ò»¸öunitÒÑ¾­ÓÃÍê			
-			pSymbol = NULL;		//±íÊ¾Ò»¸ösymbolÒÑ¾­Éú³ÉÍêÁË
-			SymbolTimeRest = SYMBOL_TIME;		//ÖØĞÂË¢ĞÂ¹¹½¨SymbolµÄÊ£ÓàµÄÊ±¼ä
-			pBuff = buff;	//Ö¸ÕëÖØĞÂÖ¸Ïòbuff
+			SymbolTimeRest = SYMBOL_TIME;		//é‡æ–°åˆ·æ–°æ„å»ºSymbolçš„å‰©ä½™çš„æ—¶é—´
 			return 1;
 		}
 	} while (restSymbolLen > 0);
 }
 
-/*@ËµÃ÷£º×éºÏ³öÒ»¸öBlock£¬Í¬Ê±½«Ô´Âë(symbol)´ò°üºóÊä³öµ½rbSend´ı·¢ËÍ¡£
-@Ï¸½Ú£º
-1£©Ê¹ÓÃAttachSymbolº¯Êı»ñÈ¡Symbol£¬×î´ó²»³¬¹ıMAX_SYMBOL_NUMBER¸öSymbol¹¹³ÉÒ»¸öBlock, ´ËÍâÃ¿¸öblock¹¹½¨Ê±¼ä²»³¬¹ıBLOCK_TIME£¨10ms£©£»
-2£©_blockÓÃÀ´´«µİblockµÄÊı¾İ£¨AttachSymbolµÄ_symbolÓ¦¸ÃÖ±½ÓÖ¸Ïò_blockµÄ¶ÔÓ¦Î»ÖÃ£©£»
-3£©_encInfoÊÇÓÃÀ´´«µİencTag, BSNºÍforeTagBSN£»
-4£©Ô´ÂëÒ²»áÖ±½Ó´ò°ü²¢´«µİµ½rbSendÖĞ´ı·¢ËÍ¡£
+/*@è¯´æ˜ï¼šç»„åˆå‡ºä¸€ä¸ªBlockï¼ŒåŒæ—¶å°†æºç (symbol)æ‰“åŒ…åè¾“å‡ºåˆ°rbSendå¾…å‘é€ã€‚
+@ç»†èŠ‚ï¼š
+1ï¼‰ä½¿ç”¨AttachSymbolå‡½æ•°è·å–Symbolï¼Œæœ€å¤§ä¸è¶…è¿‡MAX_SYMBOL_NUMBERä¸ªSymbolæ„æˆä¸€ä¸ªBlock, æ­¤å¤–æ¯ä¸ªblockæ„å»ºæ—¶é—´ä¸è¶…è¿‡BLOCK_TIMEï¼ˆ10msï¼‰ï¼›
+2ï¼‰_blockç”¨æ¥ä¼ é€’blockçš„æ•°æ®ï¼ˆAttachSymbolçš„_symbolåº”è¯¥ç›´æ¥æŒ‡å‘_blockçš„å¯¹åº”ä½ç½®ï¼‰ï¼›
+3ï¼‰_encInfoæ˜¯ç”¨æ¥ä¼ é€’encTag, BSNå’ŒforeTagBSNï¼›
+4ï¼‰æºç ä¹Ÿä¼šç›´æ¥æ‰“åŒ…å¹¶ä¼ é€’åˆ°rbSendä¸­å¾…å‘é€ã€‚
 */
 //edited by ZhangYong
-void GetBlock(uint8_t *_block, encInfo_t *_encInfo) {
-	uint32_t symbolNumber = 0;//Ä¿Ç°ÒÑ¾­·ÅÈëblockÖĞµÄsymbolµÄ¸öÊı
-	iClock_t restBlockTime = BLOCK_TIME;//¹¹½¨´ËblockÊ£ÓàµÄÊ±¼ä
+void GetBlock(encInfo_t *_encInfo) {
+	uint32_t esi = 0;//ç›®å‰å·²ç»æ”¾å…¥blockä¸­çš„symbolçš„ä¸ªæ•°//blockå½“ä¸­symbolçš„åºå·ï¼Œä»0åˆ°31
+	iClock_t restBlockTime = BLOCK_TIME;//æ„å»ºæ­¤blockå‰©ä½™çš„æ—¶é—´
 	
-	//_block = (void *)malloc(BLOCK_SYMBOL_NUMBER*SYMBOL_SIZE);//·ÖÅäÄÚ´æ£¬ÓÃÓÚ´æ·ÅBlock
-	uint8_t *pBlock = _block;//Ö¸ÕëÖ¸ÏòblockÄÚ´æ¿ªÊ¼µÄÎ»ÖÃ
-	uint32_t symbolId = 0;//blockµ±ÖĞsymbolµÄĞòºÅ£¬´Ó0µ½31
+	uint8_t *pBlock = _encInfo->blockData;//æŒ‡é’ˆæŒ‡å‘blockå†…å­˜å¼€å§‹çš„ä½ç½®
 	
-	while (symbolNumber <= MAX_SYMBOL_NUMBER && restBlockTime > 0) {//×î´ó²»³¬¹ıMAX_SYMBOL_NUMBER¸öSymbol¹¹³ÉÒ»¸öBlock, ´ËÍâÃ¿¸öblock¹¹½¨Ê±¼ä²»³¬¹ıBLOCK_TIME£¨10ms£©
+	while (esi <= MAX_SYMBOL_NUMBER && restBlockTime > 0) {//æœ€å¤§ä¸è¶…è¿‡MAX_SYMBOL_NUMBERä¸ªSymbolæ„æˆä¸€ä¸ªBlock, æ­¤å¤–æ¯ä¸ªblockæ„å»ºæ—¶é—´ä¸è¶…è¿‡BLOCK_TIMEï¼ˆ10msï¼‰
 		iClock_t TimeStart = iGetTime();
 
-		uint8_t *_symbol=(uint8_t *)malloc(SYMBOL_SIZE);	//¸ø_symbol·ÖÅäÄÚ´æ		
-		if (AttachSymbol(_symbol, restBlockTime) == 1) {//Éú³ÉÒ»¸ösymbol
-			iRaptorQPack(rbSend, _symbol, encInfo->_tag, symbolId, encInfo->_foreBSN);	//Ö±½Ó½«Ô´Âë´ò°üºóÊä³öµ½rbSend´ı·¢ËÍ
+		uint8_t *_symbol=(uint8_t *)malloc(SYMBOL_SIZE);	//ç»™_symbolåˆ†é…å†…å­˜		
+		
+		restBlockTime -= (iGetTime() - TimeStart);//åˆ·æ–°blockå‰©ä½™çš„æ—¶é—´
+		if (AttachSymbol(_symbol, restBlockTime) == 1) {//ç”Ÿæˆä¸€ä¸ªsymbol
+			iRaptorQPack(rbSend, _symbol, encInfo->_tag, esi, encInfo->_foreBSN);	//ç›´æ¥å°†æºç æ‰“åŒ…åè¾“å‡ºåˆ°rbSendå¾…å‘é€
 			memcpy(pBlock, _symbol, SYMBOL_SIZE);
 			pBlock += SYMBOL_SIZE;
-			restBlockTime -= (iGetTime() - TimeStart);//Ë¢ĞÂblockÊ£ÓàµÄÊ±¼ä
-			symbolId++;
+			esi++;
 		}
-		else {//Éú³ÉÒ»¸ösymbolÊ§°Ü //¹¹½¨BlockÊ£ÓàµÄÊ±¼äĞ¡ÓÚ¹¹½¨SymbolÊ£ÓàµÄÊ±¼ä	
-			break;//Éú³ÉºÃÁËÒ»¸öblock£¬²»ÓÃ¼ÌĞøattachSymbolÁË
+		else {//ç”Ÿæˆä¸€ä¸ªsymbolå¤±è´¥ //æ„å»ºBlockå‰©ä½™çš„æ—¶é—´å°äºæ„å»ºSymbolå‰©ä½™çš„æ—¶é—´	
+			break;//ç”Ÿæˆå¥½äº†ä¸€ä¸ªblockï¼Œä¸ç”¨ç»§ç»­attachSymboläº†
 		}
 	}
 }
 
-//@ËµÃ÷£º½«Symbol²ğ½â³ÉÖğ¸ödataUnit²¢½âÎö£¬È»ºóÓÃOutput SocketÊä³ödataUnitÀïµÄdata¡£
-//@Ï¸½Ú£º×¢ÒâÇø·ÖflagÎ»£¬Ã¿´ÎÖ»´¦ÀíÒ»¸öSymbol, ËùÒÔ¶ÔÓÚÎ´´¦ÀíµÄ²¿·ÖÏÈ½«×´Ì¬ÓÃ¾²Ì¬±äÁ¿´æ´¢¡£
+//@è¯´æ˜ï¼šå°†Symbolæ‹†è§£æˆé€ä¸ªdataUnitå¹¶è§£æï¼Œç„¶åç”¨Output Socketè¾“å‡ºdataUnité‡Œçš„dataã€‚
+//@ç»†èŠ‚ï¼šæ³¨æ„åŒºåˆ†flagä½ï¼Œæ¯æ¬¡åªå¤„ç†ä¸€ä¸ªSymbol, æ‰€ä»¥å¯¹äºæœªå¤„ç†çš„éƒ¨åˆ†å…ˆå°†çŠ¶æ€ç”¨é™æ€å˜é‡å­˜å‚¨ã€‚
 //edited by ZhangYong
 void DetachSymbol(uint8_t *_symbol) {
-	uint8_t *pSymbol = _symbol;//Ö¸ÕëÖ¸ÏòsymbolµÄ¿ªÊ¼Î»ÖÃ   
-	static uint8_t buff[MAX_UDP_DATA_SIZE + sizeof(dataUnit_t)];		//ÔİÊ±±£´æ½«ÒªÊä³öµÄunit  //±ØĞë±£´æÎª³£Á¿
-	static uint8_t *pBuff = buff;//Ö¸ÕëÖ¸ÏòbuffµÄ¿ªÊ¼Î»ÖÃ
-	static uint16_t restSymbolLen = SYMBOL_SIZE;//Ê£ÓàÎ´´¦ÀísymbolµÄ³¤¶È
-	static uint16_t dataUnitHeadLen = sizeof(dataUnit_t);//dataUnitÊ×²¿µÄ³¤¶È
-	static uint16_t restDataUnitHeadLen = 0;//Ôİ´æÎ´´¦ÀíµÄdataUnitÊ×²¿µÄ³¤¶È
-	static uint16_t restDataLen = 0;//Ê£ÓàdataUnitÖĞdataµÄ³¤¶È
+	static uint8_t buff[MAX_UDP_DATA_SIZE + sizeof(dataUnit_t)];		//æš‚æ—¶ä¿å­˜å°†è¦è¾“å‡ºçš„unit  //å¿…é¡»ä¿å­˜ä¸ºå¸¸é‡
 	
-	//×´Ì¬»ú×ª»»±êÖ¾
-	static bool switchState = 0;//0±íÊ¾get head£¬1±íÊ¾get data  //±ØĞë±£´æÎª³£Á¿
-
-	static uint8_t firstRunging = 1;//Ê×´ÎÔËĞĞ±¾º¯Êı
+	static uint8_t *pBuff = buff;//æŒ‡é’ˆæŒ‡å‘buffçš„å¼€å§‹ä½ç½®
+	uint8_t *pSymbol = _symbol;//æŒ‡é’ˆæŒ‡å‘symbolçš„å¼€å§‹ä½ç½®   	
+	static uint16_t restSymbolLen = SYMBOL_SIZE;//å‰©ä½™æœªå¤„ç†symbolçš„é•¿åº¦
+	static uint16_t restDataUnitHeadLen = 0;//æš‚å­˜æœªå¤„ç†çš„dataUnité¦–éƒ¨çš„é•¿åº¦
+	static uint16_t restDataLen = 0;//å‰©ä½™dataUnitä¸­dataçš„é•¿åº¦
+	
+	static uint16_t dataUnitHeadLen = sizeof(dataUnit_t);//dataUnité¦–éƒ¨çš„é•¿åº¦
+	
+	//çŠ¶æ€æœºè½¬æ¢æ ‡å¿—
+	static bool switchState = 0;//0è¡¨ç¤ºget headï¼Œ1è¡¨ç¤ºget data  //å¿…é¡»ä¿å­˜ä¸ºå¸¸é‡
+	
+	static uint8_t firstRunging = 1;//é¦–æ¬¡è¿è¡Œæœ¬å‡½æ•°
 	//get head
-	if (firstRunging == 1) {//±¾º¯ÊıÖ»ÔËĞĞÒ»´Î
-		memcpy(pBuff, pSymbol, sizeof(dataUnit_t));//°ÑdataUnitÊ×²¿¿½±´µ½buffÖĞÈ¥
-		memcpy(restDataLen, pSymbol + 2, 2);//½«dataUnitÖĞÊ×²¿µÄlen×Ö¶ÎµÄÖµ£¨´ú±í×ÅdataUnitÖĞdataµÄ³¤¶È£©¿½±´µ½restDataLen
-		pBuff += sizeof(dataUnit_t);//Ö¸ÕëºóÒÆ
-		pSymbol += sizeof(dataUnit_t);//Ö¸ÕëºóÒÆ
+	if (firstRunging == 1) {//æœ¬å‡½æ•°åªè¿è¡Œä¸€æ¬¡
+		memcpy(pBuff, pSymbol, sizeof(dataUnit_t));//æŠŠdataUnité¦–éƒ¨æ‹·è´åˆ°buffä¸­å»
+		memcpy(restDataLen, pSymbol + 2, 2);//å°†dataUnitä¸­é¦–éƒ¨çš„lenå­—æ®µçš„å€¼ï¼ˆä»£è¡¨ç€dataUnitä¸­dataçš„é•¿åº¦ï¼‰æ‹·è´åˆ°restDataLen
+		pBuff += sizeof(dataUnit_t);//æŒ‡é’ˆåç§»
+		pSymbol += sizeof(dataUnit_t);//æŒ‡é’ˆåç§»
 		//head over
 		//refresh
 		restSymbolLen -= sizeof(dataUnit_t);
-		firstRunging = 0;
+		firstRunging = 0;//ç¡®ä¿æœ¬å‡½æ•°åªåœ¨æœ€åˆè¢«è°ƒç”¨çš„æ—¶å€™ï¼Œåªè¿è¡Œä¸€æ¬¡
 		switchState = 1;//->get data
 	}
-
+	uint16_t temp;//nD=nS-nU
+	uint16_t dataLen;//å°†è¦å‘é€çš„unitçš„æ•°æ®é•¿åº¦
+	uint8_t flag;//ç”¨äºåˆ¤æ–­uintçš„flag
 	while (1) {
 		switch (switchState) {
-			case 0:	
-					//¼ÌĞøÉÏÒ»´Îº¯Êıµ÷ÓÃµÄget head
-					if (restDataUnitHeadLen > 0) {//ÉÏÒ»´Îget headÖ»getµ½ÁËÒ»²¿·ÖdataUnitµÄÊ×²¿
-						memcpy(pBuff, pSymbol, restDataUnitHeadLen);//°ÑdataUnitÊ×²¿£¨Ê£ÏÂµÄ²¿·Ö£©¿½±´µ½buffÖĞÈ¥
-						memcpy(restDataLen, pSymbol + 2, 2);//ÖØĞÂ¸³ÖµrestDataLen
-						pBuff += restDataUnitHeadLen;//Ö¸ÕëºóÒÆ
-						pSymbol += restDataUnitHeadLen;//Ö¸ÕëºóÒÆ
-						//head over
-						//refresh
+			case 0:	//get head
+					//ç»§ç»­ä¸Šä¸€æ¬¡å‡½æ•°è°ƒç”¨çš„get head
+					if (restDataUnitHeadLen > 0) {//ä¸Šä¸€æ¬¡get headåªgetåˆ°äº†ä¸€éƒ¨åˆ†dataUnitçš„é¦–éƒ¨
+						memcpy(pBuff, pSymbol, restDataUnitHeadLen);//æŠŠdataUnité¦–éƒ¨ï¼ˆå‰©ä¸‹çš„éƒ¨åˆ†ï¼‰æ‹·è´åˆ°buffä¸­å»
+						memcpy(restDataLen, pSymbol + 2, 2);//é‡æ–°èµ‹å€¼restDataLen
+						pBuff += restDataUnitHeadLen;//æŒ‡é’ˆåç§»
+						pSymbol += restDataUnitHeadLen;//æŒ‡é’ˆåç§»
+						//head over//refresh
 						restSymbolLen -= restDataUnitHeadLen;
 						switchState = 1;//->get data
 						continue;
 					}
 					//get head
-					if (restSymbolLen - dataUnitHeadLen > 0) {
-						memcpy(pBuff, pSymbol, sizeof(dataUnit_t));//°ÑdataUnitÊ×²¿¿½±´µ½buffÖĞÈ¥
-						memcpy(restDataLen, pSymbol + 2, 2);//ÖØĞÂ¸³ÖµrestDataLen
-						pBuff += sizeof(dataUnit_t);//Ö¸ÕëºóÒÆ
-						pSymbol += sizeof(dataUnit_t);//Ö¸ÕëºóÒÆ
+					temp = restSymbolLen - dataUnitHeadLen;
+					if (temp >= 1) {
+						memcpy(flag, pSymbol, 1);
+						if (flag == 'F') {//è¡¨ç¤ºåé¢éƒ½æ˜¯å¡«å……çš„å†…å®¹ï¼Œæœ¬symbolå¤„ç†å®Œæ¯•
+							return;
+						}
+					}
+					memcpy(pBuff, pSymbol, restSymbolLen >= dataUnitHeadLen ? dataUnitHeadLen : restSymbolLen);
+					if (temp >= 0) {
+						memcpy(restDataLen, pSymbol + 2, 2);//é‡æ–°èµ‹å€¼restDataLen
+						pBuff += dataUnitHeadLen;//æŒ‡é’ˆåç§»
+						pSymbol = temp > 0 ? dataUnitHeadLen : NULL;//æŒ‡é’ˆåç§»/è¡¨ç¤ºä¸€ä¸ªsymbolå·²ç»ç”¨å®Œäº†
 						//head over
 						//refresh
 						restSymbolLen -= dataUnitHeadLen;
 						switchState = 1;//->get data
-						continue;
-					}
-					else if (restSymbolLen - dataUnitHeadLen == 0) {
-						memcpy(pBuff, pSymbol, sizeof(dataUnit_t));//°ÑdataUnitÊ×²¿¿½±´µ½buffÖĞÈ¥
-						memcpy(restDataLen, pSymbol + 2, 2);//ÖØĞÂ¸³ÖµrestDataLen
-						pBuff += sizeof(dataUnit_t);//Ö¸ÕëºóÒÆ
-						pSymbol = NULL;//±íÊ¾Ò»¸ösymbolÒÑ¾­ÓÃÍêÁË
-									   //head over
-									   //new symbol
-									   //refresh
-						restSymbolLen = 0;//±íÊ¾Ò»¸ösymbolÒÑ¾­ÓÃÍêÁË
-						switchState = 1;//->get data
-						return;//Ò»¸ösymbol´¦ÀíÍêÁË£¬»¹Î´Æ´½ÓºÃµÄdataUnit±£´æÔÚbuffÖĞ
-					}
+						if (temp > 0) {
+							continue;
+						}
+						else {//new symbol
+							return;//ä¸€ä¸ªsymbolå¤„ç†å®Œäº†ï¼Œè¿˜æœªæ‹¼æ¥å¥½çš„dataUnitä¿å­˜åœ¨buffä¸­
+						}
+					}	
 					else {
-						restDataUnitHeadLen = abs(restSymbolLen - dataUnitHeadLen);//±£´æÏÂÀ´£¬ÏÂÒ»´Î¼ÌĞø»ñÈ¡Ê£ÏÂµÄdataUintÍ·²¿
-						memcpy(pBuff, pSymbol, restSymbolLen);//°ÑdataUnitÊ×²¿µÄ²¿·Ö¿½±´µ½buffÖĞÈ¥
-						pBuff += restSymbolLen;//Ö¸ÕëºóÒÆ
-						pSymbol = NULL;//±íÊ¾Ò»¸ösymbolÒÑ¾­ÓÃÍêÁË
-									   //head not over
-									   //new symbol
-									   //refresh
-						restSymbolLen = 0;//±íÊ¾Ò»¸ösymbolÒÑ¾­ÓÃÍêÁË
+						restDataUnitHeadLen = dataUnitHeadLen - restSymbolLen;//ä¿å­˜ä¸‹æ¥ï¼Œä¸‹ä¸€æ¬¡ç»§ç»­è·å–å‰©ä¸‹çš„dataUintå¤´éƒ¨
+						pBuff += restSymbolLen;//æŒ‡é’ˆåç§»
+						//head not over
+						//new symbol
+						//refresh
+						restSymbolLen = 0;//è¡¨ç¤ºä¸€ä¸ªsymbolå·²ç»ç”¨å®Œäº†
 						switchState = 0;//->get head again
-						return;	//Ò»¸ösymbol´¦ÀíÍêÁË£¬»¹Î´Æ´½ÓºÃµÄdataUnit±£´æÔÚbuffÖĞ	
+						return;	//ä¸€ä¸ªsymbolå¤„ç†å®Œäº†ï¼Œè¿˜æœªæ‹¼æ¥å¥½çš„dataUnitä¿å­˜åœ¨buffä¸­	
 					}
 
-			case 1:	
-					//get data
-					if (restSymbolLen - restDataLen > 0) {
-						memcpy(pBuff, pSymbol, restDataLen);//°ÑdataUnitÖĞµÄÊı¾İ¿½±´µ½buffÖĞÈ¥
-						pBuff += restDataLen;//Ö¸ÕëºóÒÆ
-						pSymbol += restDataLen;//Ö¸ÕëºóÒÆ
+			case 1:	//get data
+					temp = restSymbolLen - restDataLen;
+					memcpy(pBuff, pSymbol, restSymbolLen >= restDataLen ? restDataLen : restSymbolLen );//æŠŠdataUnitä¸­çš„æ•°æ®æ‹·è´åˆ°buffä¸­å»
+					if (temp >= 0) {	
+						pSymbol = temp > 0 ? restDataLen : NULL;//æŒ‡é’ˆåç§»/è¡¨ç¤ºä¸€ä¸ªsymbolå·²ç»ç”¨å®Œäº†
 						//data over
 						//refresh
 						restSymbolLen -= restDataLen;
-						restDataLen = 0;//±íÊ¾Ò»¸öunitÒÑ¾­Æ´½ÓºÃÁË
+						restDataLen = 0;//è¡¨ç¤ºä¸€ä¸ªunitå·²ç»æ‹¼æ¥å¥½äº†
 						pBuff = buff;
-						uint16_t dataLen = 0;
+						dataLen = 0;
 						memcpy(dataLen, pBuff + 2, 2);
-						NetworkUDPSend(sockOutput, pBuff + sizeof(dataUnit_t), dataLen);	//ÓÃOutput SocketÊä³ödataUnitÀïµÄdata
+						NetworkUDPSend(sockOutput, pBuff + sizeof(dataUnit_t), dataLen);	//ç”¨Output Socketè¾“å‡ºdataUnité‡Œçš„data
 						switchState = 0;//->get head
-						continue;
-					}
-					else if (restSymbolLen - restDataLen == 0) {
-						memcpy(pBuff, pSymbol, restDataLen);//°ÑdataUnitÖĞµÄÊı¾İ¿½±´µ½buffÖĞÈ¥£¬µÚÈı¸ö²ÎÊı¸ÄÎªrestSymbolLenÒ²Ò»Ñù
-						pBuff += restDataLen;//Ö¸ÕëºóÒÆ
-						pSymbol = NULL;//±íÊ¾Ò»¸ösymbolÒÑ¾­ÓÃÍêÁË
-						//data over
-						//new symbol
-						//refresh
-						restSymbolLen = 0;//±íÊ¾Ò»¸ösymbolÒÑ¾­ÓÃÍêÁË
-						restDataLen = 0;//±íÊ¾Ò»¸öunitÒÑ¾­Æ´½ÓºÃÁË
-						pBuff = buff;
-						uint16_t dataLen = 0;
-						memcpy(dataLen, pBuff + 2, 2);
-						NetworkUDPSend(sockOutput, pBuff + sizeof(dataUnit_t), dataLen);	//ÓÃOutput SocketÊä³ödataUnitÀïµÄdata
-						switchState = 0;//->get head
-						return;
+						if (temp > 0) {
+							continue;
+						}
+						else {//new symbol
+							return;
+						}
 					}
 					else {
-						memcpy(pBuff, pSymbol, restSymbolLen);//°ÑdataUnitÖĞµÄÊı¾İ(Ç°°ë²¿·Ö£©¿½±´µ½buffÖĞÈ¥
-						pBuff += restSymbolLen;//Ö¸ÕëºóÒÆ
-						pSymbol = NULL;//±íÊ¾Ò»¸ösymbolÒÑ¾­ÓÃÍêÁË
+						pBuff += restSymbolLen;//æŒ‡é’ˆåç§»
+						pSymbol = NULL;//è¡¨ç¤ºä¸€ä¸ªsymbolå·²ç»ç”¨å®Œäº†
 						//new symbol
 						//refresh
-						restSymbolLen = 0;//±íÊ¾Ò»¸ösymbolÒÑ¾­ÓÃÍêÁË
-						restDataLen -= restSymbolLen;//±íÊ¾»¹Òª¼ÌĞø»ñÈ¡ÏÂÒ»¸ösymbol£¨Ò²¾ÍÊÇ»ñÈ¡dataUnitÊı¾İ²¿·ÖµÄÏÂ°ë²¿·Ö£©
+						restDataLen -= restSymbolLen;//è¡¨ç¤ºè¿˜è¦ç»§ç»­è·å–ä¸‹ä¸€ä¸ªsymbolï¼ˆä¹Ÿå°±æ˜¯è·å–dataUnitæ•°æ®éƒ¨åˆ†çš„ä¸‹åŠéƒ¨åˆ†ï¼‰
+						restSymbolLen = 0;//è¡¨ç¤ºä¸€ä¸ªsymbolå·²ç»ç”¨å®Œäº†
 						switchState = 1;//get data again
 						return;	
 					}
@@ -496,16 +467,16 @@ and store in input buffer.
 Parameter:
 Return:
 */
-//edited by ZhangYong   »¹Î´ĞŞ¸ÄÍê³É
+//edited by ZhangYong   è¿˜æœªä¿®æ”¹å®Œæˆ
 iThreadStdCall_t _IOInputThread(LPVOID lpParam)
 {
 	char aData = 0;
 #ifdef IO_NETWORK_MODE
-	uint8_t *dataBuff = (uint8_t*)malloc(MAX_UDP_DATA_SIZE ); //Ö¸ÕëÖ¸ÏòUDPÊı¾İ±¨ÖĞµÄÊı¾İ
+	uint8_t *dataBuff = (uint8_t*)malloc(MAX_UDP_DATA_SIZE ); //æŒ‡é’ˆæŒ‡å‘UDPæ•°æ®æŠ¥ä¸­çš„æ•°æ®
 #else
 	uint8_t *packetBuff = (uint8_t*)malloc(SYMBOL_SIZE + 3);
 #endif // IO_NETWORK_MODE
-	int16_t recvLen=0;//ÊÕµ½µÄUDPÊı¾İÊµ¼ÊµÄµÄ³¤¶È£¨²»°üº¬UDPÍ·²¿£©
+	int16_t recvLen=0;//æ”¶åˆ°çš„UDPæ•°æ®å®é™…çš„çš„é•¿åº¦ï¼ˆä¸åŒ…å«UDPå¤´éƒ¨ï¼‰
 
 #ifndef IO_NETWORK_MODE 
 	IODataInfo_t dataInfo;
@@ -524,18 +495,18 @@ iThreadStdCall_t _IOInputThread(LPVOID lpParam)
 
 #ifdef IO_NETWORK_MODE
 		/*
-		recvLen = NetworkUDPReceive(sockInput, packetBuff + 3, SYMBOL_SIZE);	//put payload£¨ÓĞĞ§¸ºÔØ£¬¼´UDPµÄÊı¾İ²¿·Ö£© into the body of packet 
-		iClock_t ts = iGetTime();//¼ÓÒ»¸öÊ±¼ä´Átimestamp
-		memcpy(packetBuff + 3 + recvLen, &ts, sizeof(ts));//°ÑÊ±¼ä´Á4bytes·Åµ½packetBuff×îºóµÄËÄ¸ö×Ö½ÚÀïÃæ
+		recvLen = NetworkUDPReceive(sockInput, packetBuff + 3, SYMBOL_SIZE);	//put payloadï¼ˆæœ‰æ•ˆè´Ÿè½½ï¼Œå³UDPçš„æ•°æ®éƒ¨åˆ†ï¼‰ into the body of packet 
+		iClock_t ts = iGetTime();//åŠ ä¸€ä¸ªæ—¶é—´æˆ³timestamp
+		memcpy(packetBuff + 3 + recvLen, &ts, sizeof(ts));//æŠŠæ—¶é—´æˆ³4bytesæ”¾åˆ°packetBuffæœ€åçš„å››ä¸ªå­—èŠ‚é‡Œé¢
 		recvLen += sizeof(ts);
 		*/
 		
-		recvLen = NetworkUDPReceive(sockInput, dataBuff, MAX_UDP_DATA_SIZE);	//put payload£¨ÓĞĞ§¸ºÔØ£¬¼´UDPµÄÊı¾İ²¿·Ö£© into the body of packet 
+		recvLen = NetworkUDPReceive(sockInput, dataBuff, MAX_UDP_DATA_SIZE);	//put payloadï¼ˆæœ‰æ•ˆè´Ÿè½½ï¼Œå³UDPçš„æ•°æ®éƒ¨åˆ†ï¼‰ into the body of packet 
 		dataUnit_t *dataUnit = (dataUnit_t *)malloc(sizeof(dataUnit_t) + recvLen);
 		dataUnit->flag = 'R';
 		dataUnit->len = recvLen;
-		dataUnit->ts= iGetTime();//¼ÓÒ»¸öÊ±¼ä´Átimestamp
-		memcpy(dataUnit->data,dataBuff,recvLen);//°ÑÊ±¼ä´Á4bytes·Åµ½dataUnit_tÀïÃæ,³Ë2ÊÇÒòÎª×Ö½Ú¶ÔÆë
+		dataUnit->ts= iGetTime();//åŠ ä¸€ä¸ªæ—¶é—´æˆ³timestamp
+		memcpy(dataUnit->data,dataBuff,recvLen);//æŠŠæ—¶é—´æˆ³4bytesæ”¾åˆ°dataUnit_té‡Œé¢,ä¹˜2æ˜¯å› ä¸ºå­—èŠ‚å¯¹é½
 #else
 		RingBufferGet(rbDataIn, &dataInfo);
 		memcpy(packetBuff + 3, dataInfo.data, dataInfo.len);
@@ -547,7 +518,7 @@ iThreadStdCall_t _IOInputThread(LPVOID lpParam)
 #endif // DEBUG_IO_IN_DATA
 
 		iMutexLock(mutexPack);
-		//_IOPack('R', recvLen, packetBuff);//TODO:¸Ä³É getblock ºÍ attachsymbolº¯Êı
+		//_IOPack('R', recvLen, packetBuff);//TODO:æ”¹æˆ getblock å’Œ attachsymbolå‡½æ•°
 		iMutexUnlock(mutexPack);
 
 #endif // _IO_TEST_
