@@ -14,17 +14,18 @@ data to encode or output the decoded data.
 
 static bool stateRun = true;
 
-static ringBuffer_t *rbOut=NULL;		//packet out 
-static ringBuffer_t *rbIn=NULL;			//packet in
+ringBuffer_t *rbDataUnit;
+
+static ringBuffer_t *rbOut = NULL;		//packet out 
+static ringBuffer_t *rbIn = NULL;			//packet in
 static ringBuffer_t *rbRTCP_Back = NULL;//RTCP_Back
 
 static ringBuffer_t *rbDataOut = NULL;	//data out
 static ringBuffer_t *rbDataIn = NULL;	//data in
 
 static netInfo_t *sockInput = NULL;
-static netInfo_t *sock_RTCP_Input = NULL;
 static netInfo_t *sockOutput = NULL;
-static netInfo_t *sock_RTCP_Output = NULL;
+static netInfo_t *sock_RTCP_Input = NULL;
 static netInfo_t *sock_IN_RTCP_Back = NULL;//sock_IN_RTCP_Back
 static netInfo_t *sock_IN_RTCP_Forward = NULL;
 static netInfo_t *sock_OUT_RTCP_Back = NULL;
@@ -57,23 +58,6 @@ iThreadStdCall_t _IN_RTCP_Forward_Thread(LPVOID lpParam);	 // edited by fanli  _
 iThreadStdCall_t _OUT_RTCP_Back_Thread(LPVOID lpParam);
 iThreadStdCall_t _OUT_RTCP_Forward_Thread(LPVOID lpParam);
 iThreadStdCall_t _IOOutputThread(LPVOID lpParam);
-//iThreadStdCall_t _AutoFillThread(LPVOID lpParam);
-
-//void _IOPack(char _flag, uint16_t _len, uint8_t *_ioPacketBuff);
-//void _IOUnpack(uint8_t* _symbol);
-//static iClock_t autoFillClock = 0;
-
-//edited by ZhangYong
-//Ôö¼ÓdataUnit_t½á¹¹Ìå
-//@ËµÃ÷£º´ò°üÔ´Êı¾İ¹¹³É»ù±¾µ¥ÔªµÄ½á¹¹Ìå
-typedef struct dataUnit_t {
-	char flag;//±êÖ¾Î» 
-	uint16_t len;//dataµÄÊı¾İµÄ³¤¶È
-	iClock_t ts;
-	uint8_t data[0];
-}dataUnit_t;
-
-
 
 
 void IO_InputData(IODataInfo_t *_dataInfo) {
@@ -82,306 +66,211 @@ void IO_InputData(IODataInfo_t *_dataInfo) {
 void IO_OutputData(IODataInfo_t *_dataInfo) {
 	RingBufferGet(rbDataOut, _dataInfo);
 }
-/*
-iThreadStdCall_t _AutoFillThread(LPVOID lpParam)
-{
-	while (stateRun)
-	{
-		iSleep(1);
-		iMutexLock(mutexPack);
-		if (iGetTime() - autoFillClock >=2) {
-			_IOPack('F', 1, NULL);
-		}
-		iMutexUnlock(mutexPack);
-	}
-
-	return 0;
-}
-*/
-/*
-void _IOPack(char _flag,uint16_t _len, uint8_t *_ioPacketBuff) {
-	static uint8_t buff[SYMBOL_SIZE];
-	static uint16_t restBuffLen = SYMBOL_SIZE;
-	static uint8_t *pBuff = buff;
-
-	if (_flag == 'F') {
-		if (restBuffLen == SYMBOL_SIZE)return;
-		memcpy(pBuff, &_flag, 1);
-		RingBufferPut(rbIn, buff);
-		// reset the buff and restBuffLen
-		pBuff = buff;			//set the point to front
-		restBuffLen = SYMBOL_SIZE;
-
-#ifdef DEBUG_F_Flag
-		debug("[F Flag]\r\n");
-#endif // DEBUG_F_Flag
-		return;
-	}
-
-	if (restBuffLen == SYMBOL_SIZE) {
-		autoFillClock = iGetTime();
-	}
-
-	uint16_t restPacketLen = 3 + _len;
-	uint8_t *pIOPacket = _ioPacketBuff;
-
-	memcpy(pIOPacket,&_flag,1);
-	memcpy(pIOPacket+1, &_len, 2);
-
-	/*   pack   */
-
-/*
-while (restPacketLen) {
-		if (restBuffLen> restPacketLen) {   // put all the rest of packet into buff
-			memcpy(pBuff, pIOPacket, restPacketLen);
-			pBuff += restPacketLen;
-			restBuffLen -= restPacketLen;
-			restPacketLen = 0;
-		}
-		else if(restBuffLen<= restPacketLen) //put a part of packet into the whole buff
-		{
-			memcpy(pBuff, pIOPacket, restBuffLen);
-			pIOPacket += restBuffLen;
-			restPacketLen -= restBuffLen;
-			RingBufferPut(rbIn, buff);
-
-			// reset the buff and restBuffLen
-			pBuff = buff;
-			restBuffLen = SYMBOL_SIZE;
-		}
-	}
-
-}
-*/
 
 
 /*
-@ËµÃ÷£º´ÓrbDataUnitÖĞ»ñÈ¡dataUnit£¬È»ºó¶à¸ödataUnitÆ´½Ó³öSymbol¡£Ã¿´ÎÆ´´Õ³öÒ»¸öSymbolÔò·µ»Ø¡£
-½«SymbolµÄÖµ¸´ÖÆµ½_symbolÖĞ¡£º¯ÊıÖĞÓĞÖ´ĞĞÊ±¼äÏŞÖÆ¡£
-@Ï¸½Ú£º
-1£©Ã¿¸öSymbol×î¶àµÄÆ´½ÓÊ±³¤²»³¬¹ıSYMBOL_TIME(3ms)£¬Í¬Ê±´Ó¸ÃAttachSymbolº¯Êı¿ªÊ¼×ÜÊ±¼ä²»³¬¹ı_timeRest£¬ËùÒÔ´Ó»º³åÖĞ»ñÈ¡Ê¹ÓÃRingBufferTimedGet(rbDataUnit, ... )·½Ê½£»
-2£©´Ó»ñÈ¡µ½SymbolÀï×îÏÈµÄdataUnit¿ªÊ¼¼´Éè¶¨Ò»¸öÊ±¼ä´Á£¬½ÓÏÂÀ´µÄBufferGet¶¼¼ÆËã²¢¸³ÓèÊ£ÓàµÄÊ±¼ä£¬Ê£ÓàÊ±¼äÂú×ã£¨1£©ÖĞÁ½¸öÒªÇó£»
-3£©Èç¹ûBufferGet·µ»ØµÄÊÇ³¬Ê±ÔòÔÚSymbol½ÓÏÂÀ´ĞèÒªÌî³äµÄ×Ö½ÚÌî¡¯F¡¯½áÊø±ê¼Ç£¬±íÊ¾´ËSymbolÆ´½ÓÍê³É£¬º¯Êı·µ»Ø¡£
-4£©ÌáÊ¾£ºÒòÎªÃ¿´Î·µ»ØÊä³öÒ»¸öSymbol£¬Ê±¼äµ½È´Æ´½Ó²»ÂúÔò¼Ó¡®F¡¯½áÊø£¬dataUnit³¤¶È³¬¹ıSymbolÊ£Óà¿Õ¼äÔòĞèÒª·Ö¸î£¬º¯ÊıÖĞ¿ÉÒÔÉèÖÃ¾²Ì¬±äÁ¿±£´æµ±Ç°×´Ì¬¡£
+@è¯´æ˜ï¼šä»rbDataUnitä¸­è·å–dataUnitï¼Œç„¶åå¤šä¸ªdataUnitæ‹¼æ¥å‡ºSymbolã€‚æ¯æ¬¡æ‹¼å‡‘å‡ºä¸€ä¸ªSymbolåˆ™è¿”å›ã€‚
+å°†Symbolçš„å€¼å¤åˆ¶åˆ°_symbolä¸­ã€‚å‡½æ•°ä¸­æœ‰æ‰§è¡Œæ—¶é—´é™åˆ¶ã€‚
+@ç»†èŠ‚ï¼š
+1ï¼‰æ¯ä¸ªSymbolæœ€å¤šçš„æ‹¼æ¥æ—¶é•¿ä¸è¶…è¿‡SYMBOL_TIME(3ms)ï¼ŒåŒæ—¶ä»è¯¥AttachSymbolå‡½æ•°å¼€å§‹æ€»æ—¶é—´ä¸è¶…è¿‡_timeRestï¼Œæ‰€ä»¥ä»ç¼“å†²ä¸­è·å–ä½¿ç”¨RingBufferTimedGet(rbDataUnit, ... )æ–¹å¼ï¼›
+2ï¼‰ä»è·å–åˆ°Symbolé‡Œæœ€å…ˆçš„dataUnitå¼€å§‹å³è®¾å®šä¸€ä¸ªæ—¶é—´æˆ³ï¼Œæ¥ä¸‹æ¥çš„BufferGetéƒ½è®¡ç®—å¹¶èµ‹äºˆå‰©ä½™çš„æ—¶é—´ï¼Œå‰©ä½™æ—¶é—´æ»¡è¶³ï¼ˆ1ï¼‰ä¸­ä¸¤ä¸ªè¦æ±‚ï¼›
+3ï¼‰å¦‚æœBufferGetè¿”å›çš„æ˜¯è¶…æ—¶åˆ™åœ¨Symbolæ¥ä¸‹æ¥éœ€è¦å¡«å……çš„å­—èŠ‚å¡«â€™Fâ€™ç»“æŸæ ‡è®°ï¼Œè¡¨ç¤ºæ­¤Symbolæ‹¼æ¥å®Œæˆï¼Œå‡½æ•°è¿”å›ã€‚
+4ï¼‰æç¤ºï¼šå› ä¸ºæ¯æ¬¡è¿”å›è¾“å‡ºä¸€ä¸ªSymbolï¼Œæ—¶é—´åˆ°å´æ‹¼æ¥ä¸æ»¡åˆ™åŠ â€˜Fâ€™ç»“æŸï¼ŒdataUnité•¿åº¦è¶…è¿‡Symbolå‰©ä½™ç©ºé—´åˆ™éœ€è¦åˆ†å‰²ï¼Œå‡½æ•°ä¸­å¯ä»¥è®¾ç½®é™æ€å˜é‡ä¿å­˜å½“å‰çŠ¶æ€ã€‚
 */
 //edited by ZhangYong
-bool AttachSymbol( uint8_t *_symbol, iClock_t _timeRest) {
-	if (_timeRest < SYMBOL_TIME) {				//¹¹½¨BlockÊ£ÓàµÄÊ±¼äĞ¡ÓÚ¹¹½¨SymbolÊ£ÓàµÄÊ±¼ä
+bool AttachSymbol(uint8_t *_symbol, iClock_t _timeRest) {
+	if (_timeRest < SYMBOL_TIME) { //æ„å»ºBlockå‰©ä½™çš„æ—¶é—´å°äºæ„å»ºSymbolå‰©ä½™çš„æ—¶é—´
 		return 0;
 	}
-	static uint8_t buff[MAX_UDP_DATA_SIZE + sizeof(dataUnit_t)];	//ÔİÊ±±£´æ½«Òª±£´æµ½_symbolÖĞÈ¥µÄunit  //±ØĞë±£´æÎª³£Á¿
-	_symbol=(uint8_t *)malloc(SYMBOL_SIZE);		//¸ø_symbol·ÖÅäÄÚ´æ
-	static uint16_t restBuffLen = sizeof(buff);		//Êµ¼ÊÉÏ»¹Ã»ÓĞ×°ÈësymbolµÄÊ£ÓàµÄdataUnit³¤¶È	//±ØĞë±£´æÎª³£Á¿
-	static uint16_t restSymbolLen = SYMBOL_SIZE;		//Ê£ÓàµÄsymbol³¤¶È	//±ØĞë±£´æÎª³£Á¿
-	
-	static uint8_t *pBuff = buff;					//Ö¸ÕëÖ¸Ïòbuff	//±ØĞë±£´æÎª³£Á¿
-	uint8_t *pSymbol = _symbol;				//Ö¸ÕëÖ¸Ïò_symbol	
-	
-	iClock_t BlockTimeRest = _timeRest;				//¹¹½¨BlockÊ£ÓàµÄÊ±¼ä
-	static iClock_t SymbolTimeRest = SYMBOL_TIME;	//¹¹½¨SymbolÊ£ÓàµÄÊ±¼ä  ³õÊ¼»¯Ê±¼äÎª3ms		//±ØĞë±£´æÎª³£Á¿
+	static dataUnit_t *dataUnit = NULL;//ç»“æ„ä½“æŒ‡é’ˆ
+	static uint16_t restDataUnitLen = 0;//ï¼ˆå®é™…ä¸Šè¿˜æ²¡æœ‰è£…å…¥symbolçš„ï¼‰å‰©ä½™çš„dataUnité•¿åº¦
+	uint16_t restSymbolLen = SYMBOL_SIZE;//å‰©ä½™çš„symbolé•¿åº¦	
+	static uint8_t *pBuff = NULL;//æŒ‡é’ˆæŒ‡å‘buff	
+	uint8_t *pSymbol = _symbol;	//æŒ‡é’ˆæŒ‡å‘_symbol	
 
-	iClock_t TimeStart = iGetTime();
-	
-		//ÏÈÈ¡µÚÒ»¸ödataUnit
-		if (RingBufferTimedGet(rbDataUnit, pBuff, SymbolTimeRest) == 1) {	//´ÓrbDataUnitÖĞ»ñÈ¡dataUnit£¬·Åµ½pBuffËùÖ¸ÏòµÄµØÖ·ÀïÈ¥
-			memcpy(restBuffLen, pBuff + 2, 2);
-			restBuffLen += sizeof(dataUnit_t);//»ñÈ¡buff£¨°üº¬Í·²¿£©µÄ³¤¶È
+	static uint8_t filling = 'F';//å¡«å……å­—ç¬¦
 
-			if (restBuffLen > SYMBOL_SIZE) {	//»ñÈ¡µÄdataUnit³¤¶È´óÓÚSYMBOL_SIZE
-				//ĞèÒª·ÖÆ¬
-				memcpy(pSymbol, pBuff, SYMBOL_SIZE);
-				restSymbolLen = 0;//=0
-				restBuffLen -= SYMBOL_SIZE;//>0
-				pBuff += SYMBOL_SIZE;//Ö¸ÕëºóÒÆ		//±ØĞë±£´æÏÂÀ´£¡£¡£¡
-				pSymbol = NULL;//Ö¸ÕëÎª¿Õ ±íÊ¾Ò»¸ösymbolÒÑ¾­ĞÎ³ÉºÃÁË
-				SymbolTimeRest = SYMBOL_TIME;//ÖØĞÂË¢ĞÂ¹¹½¨SymbolÊ£ÓàµÄÊ±¼ä
-				restSymbolLen = SYMBOL_SIZE;//ÖØĞÂË¢ĞÂÒ»ÏÂËüµÄÖµ
-				return 1;//Éú³ÉÁËÒ»¸ösymbol
-			}
-			else if (restBuffLen == SYMBOL_SIZE) {//»ñÈ¡µÄdataUnit³¤¶ÈÇ¡ºÃµÈÓÚSYMBOL_SIZE
-				memcpy(pSymbol, pBuff, SYMBOL_SIZE);//°ÑÕû¸öbuff¶¼·Åµ½symbolÖĞÈ¥
-				restSymbolLen = 0;
-				restBuffLen = 0;
-				pBuff = NULL;//Ö¸ÕëÎª¿Õ ±íÊ¾Ò»¸ödataUnitÒÑ¾­ÓÃÍêÁË
-				pSymbol = NULL;//Ö¸ÕëÎª¿Õ ±íÊ¾Ò»¸ösymbolÒÑ¾­ĞÎ³ÉºÃÁË
-				SymbolTimeRest = SYMBOL_TIME;//ÖØĞÂË¢ĞÂ¹¹½¨SymbolÊ£ÓàµÄÊ±¼ä
-				restSymbolLen = SYMBOL_SIZE;//ÖØĞÂË¢ĞÂÒ»ÏÂËüµÄÖµ
-				pBuff = buff;//Ö¸ÕëÖØĞÂÖ¸ÏòbuffµÄ¿ªÍ·
-				return 1;//Éú³ÉÁËÒ»¸ösymbol
-			}
-			else {		//»ñÈ¡µÄdataUnit³¤¶ÈĞ¡ÓÚSYMBOL_SIZE
-				memcpy(pSymbol, pBuff, sizeof(buff));//°ÑÕû¸öbuff¶¼·Åµ½symbolÖĞÈ¥
-				restSymbolLen -= sizeof(buff);//´óÓÚ0
-				restBuffLen = 0;//=0
-				pBuff = NULL;//Ö¸ÕëÎª¿Õ ±íÊ¾Ò»¸ödataUnitÒÑ¾­ÓÃÍêÁË
-				pSymbol += sizeof(buff);//Ö¸ÕëºóÒÆ
-				SymbolTimeRest -= (iGetTime() - TimeStart);//ÖØĞÂ¼ÆËã¹¹½¨SymbolÊ£ÓàµÄÊ±¼ä
-				pBuff = buff;//Ö¸ÕëÖØĞÂÖ¸ÏòbuffµÄ¿ªÍ·
-			}
-		}
-		else {//»ñÈ¡µÚÒ»¸ödataUnit¾Í³¬Ê±ÁË£¬ËµÃ÷¹¹½¨SymbolÊ£ÓàµÄÊ±¼äÎª0ÁË
-			//memcpy(pSymbol, 'F', 1);//Èç¹ûBufferGet·µ»ØµÄÊÇ³¬Ê±ÔòÔÚSymbol½ÓÏÂÀ´ĞèÒªÌî³äµÄ×Ö½ÚÌî¡¯F¡¯½áÊø±ê¼Ç£¬±íÊ¾´ËSymbolÆ´½ÓÍê³É£¬º¯Êı·µ»Ø¡£
-			//return 1;//Éú³ÉÁËÒ»¸ösymbol
-			return 0;
-		}
-	
-	//µÚ¶ş´Î»ñÈ¡dataUnit¡¢µÚÈı´Î¡¢µÚËÄ´Î¡­¡­
-	while (restSymbolLen > 0) {
-		TimeStart = iGetTime();//ÖØĞÂ»ñÈ¡µ±Ç°Ê±¼ä
-		if (RingBufferTimedGet(rbDataUnit, pBuff, SymbolTimeRest) == 1) {
-			memcpy(restBuffLen, pBuff + 2, 2);
-			restBuffLen += sizeof(dataUnit_t);//»ñÈ¡buff£¨°üº¬Í·²¿£©µÄ³¤¶È
-			if (restBuffLen > restSymbolLen) {	//»ñÈ¡µÄdataUnit³¤¶È´óÓÚrestSymbolLen
-				//»¹ĞèÒª·ÖÆ¬
-				memcpy(pSymbol, pBuff, restSymbolLen);
-				restSymbolLen = 0;
-				restBuffLen -= restSymbolLen;//>0
-				pBuff += restSymbolLen;//Ö¸ÕëºóÒÆ
-				pSymbol = NULL;//Ö¸ÕëÎª¿Õ ±íÊ¾Ò»¸ösymbolÒÑ¾­ĞÎ³ÉºÃÁË
-				SymbolTimeRest = SYMBOL_TIME;//ÖØĞÂË¢ĞÂ¹¹½¨SymbolÊ£ÓàµÄÊ±¼ä
-				restSymbolLen = SYMBOL_SIZE;//ÖØĞÂË¢ĞÂÒ»ÏÂËüµÄÖµ
-				return 1;
-			}
-			else if (restBuffLen == restSymbolLen) {//»ñÈ¡µÄdataUnit³¤¶ÈµÈrestSymbolLen
-				memcpy(pSymbol, pBuff, restSymbolLen);//°ÑÕû¸öbuff¶¼·Åµ½symbolÖĞÈ¥
-				restSymbolLen = 0;
-				restBuffLen = 0;
-				pBuff = NULL;//Ö¸ÕëÎª¿Õ ±íÊ¾Ò»¸ödataUnitÒÑ¾­ÓÃÍêÁË
-				pSymbol = NULL;//Ö¸ÕëÎª¿Õ ±íÊ¾Ò»¸ösymbolÒÑ¾­ĞÎ³ÉºÃÁË
-				SymbolTimeRest = SYMBOL_TIME;//ÖØĞÂË¢ĞÂ¹¹½¨SymbolÊ£ÓàµÄÊ±¼ä
-				restSymbolLen = SYMBOL_SIZE;//ÖØĞÂË¢ĞÂÒ»ÏÂËüµÄÖµ
-				pBuff = buff;//Ö¸ÕëÖØĞÂÖ¸ÏòbuffµÄ¿ªÍ·
-				return 1;//Éú³ÉÁËÒ»¸ösymbol
-			}
-			else {		//»ñÈ¡µÄdataUnit³¤¶ÈĞ¡ÓÚrestSymbolLen
-				memcpy(pSymbol, pBuff, sizeof(buff));//°ÑÕû¸öbuff¶¼·Åµ½symbolÖĞÈ¥
-				restSymbolLen -= sizeof(buff);//´óÓÚ0
-				restBuffLen = 0;//=0
-				pBuff = NULL;//Ö¸ÕëÎª¿Õ ±íÊ¾Ò»¸ödataUnitÒÑ¾­ÓÃÍêÁË
-				pSymbol += sizeof(buff);//Ö¸ÕëÎª¿Õ ±íÊ¾Ò»¸ösymbolÒÑ¾­ĞÎ³ÉºÃÁË
-				SymbolTimeRest -= (iGetTime() - TimeStart);//¼õÉÙ¹¹½¨SymbolÊ£ÓàµÄÊ±¼ä
-				pBuff = buff;//Ö¸ÕëÖØĞÂÖ¸ÏòbuffµÄ¿ªÍ·
-			}
-		}
-		else {//»ñÈ¡µÚn(n>=2)¸ödataUnit³¬Ê±ÁË£¬ËµÃ÷¹¹½¨SymbolÊ£ÓàµÄÊ±¼äÎª0ÁË
-			memcpy(pSymbol, 'F', 1);//Èç¹ûBufferGet·µ»ØµÄÊÇ³¬Ê±ÔòÔÚSymbol½ÓÏÂÀ´ĞèÒªÌî³äµÄ×Ö½ÚÌî¡¯F¡¯½áÊø±ê¼Ç£¬±íÊ¾´ËSymbolÆ´½ÓÍê³É£¬º¯Êı·µ»Ø¡£
-			restSymbolLen = SYMBOL_SIZE;//ÖØĞÂË¢ĞÂÒ»ÏÂËüµÄÖµ
-			SymbolTimeRest = SYMBOL_TIME;//ÖØĞÂË¢ĞÂ¹¹½¨SymbolÊ£ÓàµÄÊ±¼ä
-			pBuff = buff;//Ö¸ÕëÖØĞÂÖ¸ÏòbuffµÄ¿ªÍ·
-			return 1;
-		}			
+	iClock_t SymbolTimeRest = SYMBOL_TIME;	//æ„å»ºSymbolå‰©ä½™çš„æ—¶é—´  åˆå§‹åŒ–æ—¶é—´ä¸º3ms		
+	iClock_t TimeStart = 0;
+
+	bool hasGotDataUnit = 0;	//ç”¨å»ç¡®å®šæœ¬æ¬¡attachSymbolå‡½æ•°æ˜¯å¦éœ€è¦é‡æ–°è·å–ä¸€ä¸ªdataUnit
+	uint16_t temp=0;//nD=nS-SU
+
+	if (restDataUnitLen == 0) {	// è¡¨ç¤ºä¸Šä¸€ä¸ªdataUnitå·²ç»ç”¨å®Œäº†ï¼Œéœ€è¦é‡æ–°è·å–ä¸€ä¸ªdataUnit	
+		RingBufferGet(rbDataUnit, &dataUnit);	//å…ˆå–ç¬¬ä¸€ä¸ªdataUnit,ç°åœ¨dataUnitçš„å€¼å°±æ˜¯unitæ•°æ®çš„é¦–åœ°å€
+		pBuff = (uint8_t*) dataUnit;
+		restDataUnitLen = dataUnit->len + sizeof(dataUnit_t);//dataUnitçš„ï¼ˆåŒ…å«å¤´éƒ¨ï¼‰æ€»é•¿åº¦		
+		hasGotDataUnit = 1;		//è¡¨ç¤ºç›®å‰è·å–åˆ°äº†ä¸€ä¸ªdataUnit
 	}
+	else {//restDataUnitLen>0, åˆ™ä¸Šä¸€æ¬¡ä¸€ä¸ªdataUnitè¿˜æ²¡æœ‰ç”¨å®Œï¼Œæ‰€ä»¥è¿™æ¬¡ä¸éœ€è¦å†è·å–æ–°çš„dataUnit
+		hasGotDataUnit = 1;
+	}
+	TimeStart = iGetTime();//å½“è·å¾—äº†ç¬¬ä¸€ä¸ªdataUnitçš„æ—¶å€™æ‰å¼€å§‹è®¡æ—¶
 
+	do {
+		if (hasGotDataUnit == 0) {
+			SymbolTimeRest -= (iGetTime() - TimeStart);		//å‡å°‘ç›¸åº”çš„Symbolå‰©ä½™çš„æ—¶é—´	
+			if (RingBufferTimedGet(rbDataUnit, &dataUnit, SymbolTimeRest) == 1) {//è·å–ç¬¬äºŒä¸ªï¼ˆç¬¬ä¸‰ä¸ªâ€¦â€¦ï¼‰dataUnit
+				pBuff = (uint8_t*)dataUnit;
+				restDataUnitLen = dataUnit->len + sizeof(dataUnit_t);
+				hasGotDataUnit = 1;
+			}
+			else {	//è·å–ç¬¬n(n>=2)ä¸ªdataUnitè¶…æ—¶äº†//symbol over
+				memcpy(pSymbol, &filling, 1);	//åœ¨Symbolæ¥ä¸‹æ¥éœ€è¦å¡«å……çš„å­—èŠ‚å¡«â€™Fâ€™ç»“æŸæ ‡è®°ï¼Œè¡¨ç¤ºæ­¤Symbolæ‹¼æ¥å®Œæˆï¼Œå‡½æ•°è¿”å›ã€‚
+				return 1;		//ç”Ÿæˆäº†ä¸€ä¸ªsymbol
+			}
+		}
 
+		temp = restSymbolLen - restDataUnitLen;//nD=nS-nU
+		memcpy(pSymbol, pBuff, restSymbolLen > restDataUnitLen ? restDataUnitLen : restSymbolLen);
+		if (temp > 0) {//Unit over
+			restSymbolLen -= restDataUnitLen;
+			pSymbol += restDataUnitLen;		//symbolæŒ‡é’ˆåç§»
+			hasGotDataUnit = 0;		//è¡¨ç¤ºæ¥ä¸‹æ¥éœ€è¦è·å–ä¸‹ä¸€ä¸ªdataUnit
+			free(dataUnit);
+		}
+		else {// temp<0 symbol over / temp=0 Unit over and symbol over
+			restDataUnitLen = restDataUnitLen - restSymbolLen;
+			if (temp == 0) {
+				pBuff = NULL;
+				free(dataUnit);
+				hasGotDataUnit = 0;
+			}
+			else {
+				pBuff += restSymbolLen;
+				hasGotDataUnit = 1;
+			}
+			return 1;
+		}
+	} while (restSymbolLen > 0);
+	
+	//symbol over
+	return 1;//â€œä¸æ˜¯æ‰€æœ‰çš„æ§ä»¶è·¯å¾„éƒ½è¿”å›å€¼â€ï¼Œå§‹ç»ˆæ‰¾ä¸åˆ°åŸå› ï¼Œæ‰€ä»¥åªå¥½å…ˆè¿™æ ·å†™äº†
 }
 
-
-
-
-/*@ËµÃ÷£º×éºÏ³öÒ»¸öBlock£¬Í¬Ê±½«Ô´Âë´ò°üºóÊä³öµ½rbSend´ı·¢ËÍ¡£
-@Ï¸½Ú£º
-1£©Ê¹ÓÃAttachSymbolº¯Êı»ñÈ¡Symbol£¬×î´ó²»³¬¹ıMAX_SYMBOL_NUMBER¸öSymbol¹¹³ÉÒ»¸öBlock, ´ËÍâÃ¿¸öblock¹¹½¨Ê±¼ä²»³¬¹ıBLOCK_TIME£¨10ms£©£»
-2£©_blockÓÃÀ´´«µİblockµÄÊı¾İ£¨AttachSymbolµÄ_symbolÓ¦¸ÃÖ±½ÓÖ¸Ïò_blockµÄ¶ÔÓ¦Î»ÖÃ£©£»
-3£©_encInfoÊÇÓÃÀ´´«µİencTag, BSNºÍforeTagBSN£»
-4£©Ô´ÂëÒ²»áÖ±½Ó´ò°ü²¢´«µİµ½rbSendÖĞ´ı·¢ËÍ¡£
+/*@è¯´æ˜ï¼šç»„åˆå‡ºä¸€ä¸ªBlockï¼ŒåŒæ—¶å°†æºç (symbol)æ‰“åŒ…åè¾“å‡ºåˆ°rbSendå¾…å‘é€ã€‚
+@ç»†èŠ‚ï¼š
+1ï¼‰ä½¿ç”¨AttachSymbolå‡½æ•°è·å–Symbolï¼Œæœ€å¤§ä¸è¶…è¿‡MAX_SYMBOL_NUMBERä¸ªSymbolæ„æˆä¸€ä¸ªBlock, æ­¤å¤–æ¯ä¸ªblockæ„å»ºæ—¶é—´ä¸è¶…è¿‡BLOCK_TIMEï¼ˆ10msï¼‰ï¼›
+2ï¼‰_blockç”¨æ¥ä¼ é€’blockçš„æ•°æ®ï¼ˆAttachSymbolçš„_symbolåº”è¯¥ç›´æ¥æŒ‡å‘_blockçš„å¯¹åº”ä½ç½®ï¼‰ï¼›
+3ï¼‰_encInfoæ˜¯ç”¨æ¥ä¼ é€’encTag, BSNå’ŒforeTagBSNï¼›
+4ï¼‰æºç ä¹Ÿä¼šç›´æ¥æ‰“åŒ…å¹¶ä¼ é€’åˆ°rbSendä¸­å¾…å‘é€ã€‚
 */
 //edited by ZhangYong
-void GetBlock(void *_block, encInfo_t *_encInfo) {
-	uint32_t symbol_number = 0;
-	while (symbol_number <= MAX_SYMBOL_NUMBER || <=BLOCK_TIME) {
-		if (AttachSymbol(
+uint32_t GetBlock(ringBuffer_t *_pRb, uint8_t* _pBlock, uint32_t _tag, uint8_t _foreBSN) {
+	uint32_t esi = 0;//ç›®å‰å·²ç»æ”¾å…¥blockä¸­çš„symbolçš„ä¸ªæ•°//blockå½“ä¸­symbolçš„åºå·ï¼Œä»0åˆ°31
+	iClock_t restBlockTime = BLOCK_TIME;//æ„å»ºæ­¤blockå‰©ä½™çš„æ—¶é—´
+	iClock_t TimeStart= iGetTime();
+	uint8_t *pBlock =  _pBlock;//æŒ‡é’ˆæŒ‡å‘blockå†…å­˜å¼€å§‹çš„ä½ç½®
+	uint8_t *_symbol = (uint8_t *)malloc(SYMBOL_SIZE);	//ç»™_symbolåˆ†é…å†…å­˜		
 
-
-
+	while (esi < MAX_SYMBOL_NUMBER && restBlockTime > 0) {//æœ€å¤§ä¸è¶…è¿‡MAX_SYMBOL_NUMBERä¸ªSymbolæ„æˆä¸€ä¸ªBlock, æ­¤å¤–æ¯ä¸ªblockæ„å»ºæ—¶é—´ä¸è¶…è¿‡BLOCK_TIMEï¼ˆ10msï¼‰
+		restBlockTime -= (iGetTime() - TimeStart);//åˆ·æ–°blockå‰©ä½™çš„æ—¶é—´
+		if (AttachSymbol(_symbol, restBlockTime) == 1) {//ç”Ÿæˆä¸€ä¸ªsymbol
+			iRaptorQPack(_pRb, _symbol, _tag, esi, _foreBSN);	//ç›´æ¥å°†æºç æ‰“åŒ…åè¾“å‡ºåˆ°rbSendå¾…å‘é€
+			memcpy(pBlock, _symbol, SYMBOL_SIZE);
+			pBlock += SYMBOL_SIZE;
+			esi++;
+		}
+		else {//ç”Ÿæˆä¸€ä¸ªsymbolå¤±è´¥ï¼Œå› ä¸ºæ„å»ºBlockå‰©ä½™çš„æ—¶é—´å°äºæ„å»ºSymbolå‰©ä½™çš„æ—¶é—´	
+			free(_symbol);
+			return esi;
+		}
+	}
+	free(_symbol);
+	return esi;
 }
 
-//@ËµÃ÷£º½«Symbol²ğ½â³ÉÖğ¸ödataUnit²¢½âÎö£¬È»ºóÓÃOutput SocketÊä³ödataUnitÀïµÄdata¡£
-//@Ï¸½Ú£º×¢ÒâÇø·ÖflagÎ»£¬Ã¿´ÎÖ»´¦ÀíÒ»¸öSymbol, ËùÒÔ¶ÔÓÚÎ´´¦ÀíµÄ²¿·ÖÏÈ½«×´Ì¬ÓÃ¾²Ì¬±äÁ¿´æ´¢¡£
+//@è¯´æ˜ï¼šå°†Symbolæ‹†è§£æˆé€ä¸ªdataUnitå¹¶è§£æï¼Œç„¶åç”¨Output Socketè¾“å‡ºdataUnité‡Œçš„dataã€‚
+//@ç»†èŠ‚ï¼šæ³¨æ„åŒºåˆ†flagä½ï¼Œæ¯æ¬¡åªå¤„ç†ä¸€ä¸ªSymbol, æ‰€ä»¥å¯¹äºæœªå¤„ç†çš„éƒ¨åˆ†å…ˆå°†çŠ¶æ€ç”¨é™æ€å˜é‡å­˜å‚¨ã€‚
 //edited by ZhangYong
-void DetachSymbol(void *_symbol) {
+void DetachSymbol(uint8_t *_symbol, dataUnit_t *dataUnit) {
+	static const uint16_t dataUnitHeadLen = sizeof(dataUnit_t);//dataUnité¦–éƒ¨çš„é•¿åº¦
+	static uint16_t restHeadLen = 0;//æš‚å­˜æœªå¤„ç†çš„dataUnité¦–éƒ¨çš„é•¿åº¦
+	static uint16_t restDataLen = 0;//æš‚å­˜æœªå¤„ç†çš„dataUnitä¸­dataçš„é•¿åº¦
 
+	uint8_t *pSymbol = _symbol;//æŒ‡é’ˆæŒ‡å‘symbolçš„å¼€å§‹ä½ç½®   	
+	uint16_t restSymbolLen = SYMBOL_SIZE;//æš‚å­˜æœªå¤„ç†çš„symbolçš„é•¿åº¦
+										 //çŠ¶æ€æœºè½¬æ¢æ ‡å¿—
+	static bool switchState = 0;//0è¡¨ç¤ºget headï¼Œ1è¡¨ç¤ºget data  
 
-
-
-}
-
-
-/*
-void _IOUnpack(uint8_t* _symbol)
-{
-	static IOPacket_t ioPacket;
-	static uint16_t recvHeadLen = 0;
-	static uint16_t restPacketLen = 0;
-	static uint8_t ioPacketHeadBuff[3];
-	static uint8_t* pIoPacketData = ioPacket.data;
-#ifndef IO_NETWORK_MODE 
-	IODataInfo_t dataInfo;
-#endif // !IO_NETWORK_MODE
-	uint8_t* pBuff = _symbol;
-	uint16_t restBuffLen = SYMBOL_SIZE;
-
-	while (restBuffLen)
-	{
-		if (recvHeadLen < 3) {
-			memcpy(ioPacketHeadBuff + recvHeadLen, pBuff, 1);
-			pBuff++;
-			restBuffLen--;
-			pIoPacketData++;
-			recvHeadLen++;
-			if (recvHeadLen == 1) {
-				ioPacket.flag = ioPacketHeadBuff[0];
-				if (ioPacket.flag == 'F')
-				{
-					recvHeadLen = 0;
-#ifdef DEBUG_F_packet
-					debug("[F packet] restLen=%d \r\n", restBuffLen);
-#endif // DEBUG_F_packet
+	uint16_t temp=0;//nD=nS-nU
+	uint16_t sendDataLen=0;//å°†è¦å‘é€çš„unitçš„æ•°æ®é•¿åº¦
+	uint8_t flag='\0';//ç”¨äºåˆ¤æ–­uintçš„flag
+	while (1) {
+		switch (switchState) {
+		case 0:	//get head
+			if (restSymbolLen >0) {
+				memcpy(&flag, pSymbol, 1);
+				if (flag == 'F') {//è¡¨ç¤ºåé¢éƒ½æ˜¯å¡«å……çš„å†…å®¹ï¼Œæœ¬symbolå¤„ç†å®Œæ¯•
+					free(_symbol);
 					return;
 				}
 			}
-			else if (recvHeadLen == 3) {	// have got a packet
-				memcpy(&ioPacket.len, ioPacketHeadBuff + 1,2);
-				restPacketLen = ioPacket.len;
-				pIoPacketData = ioPacket.data;
-				assert(ioPacket.flag == 'R' || ioPacket.flag == 'T');
+			if (restHeadLen > 0) {//ä¸Šä¸€æ¬¡get headåªgetåˆ°äº†ä¸€éƒ¨åˆ†dataUnitçš„é¦–éƒ¨,ç»§ç»­ä¸Šä¸€æ¬¡å‡½æ•°è°ƒç”¨çš„get head
+				memcpy((&(dataUnit->flag) + (dataUnitHeadLen - restHeadLen)), pSymbol, restHeadLen);//æŠŠdataUnité¦–éƒ¨ï¼ˆå‰©ä¸‹çš„éƒ¨åˆ†ï¼‰æ‹·è´è¿›å»
+				restDataLen = dataUnit->len;//é‡æ–°èµ‹å€¼restDataLen
+				pSymbol += restHeadLen;//æŒ‡é’ˆåç§»
+				//head over//refresh    
+				restSymbolLen -= restHeadLen;
+				switchState = 1;//->get data
+				continue;
 			}
-		}
-		else
-		{
-			if (restBuffLen >= restPacketLen) {
-				if (ioPacket.flag == 'R'|| ioPacket.flag == 'T') {
-					memcpy(pIoPacketData, pBuff, restPacketLen);
-#ifdef IO_NETWORK_MODE 
-					if(ioPacket.flag == 'R')
-						NetworkUDPSend(sockOutput, ioPacket.data, ioPacket.len-sizeof(iClock_t));	//output_rtp
-					if (ioPacket.flag == 'T')
-						NetworkUDPSend(sock_RTCP_Output, ioPacket.data, ioPacket.len - sizeof(iClock_t));	//output_rtcp
-					iClock_t ts;
-					memcpy(&ts, ioPacket.data + ioPacket.len - sizeof(iClock_t), sizeof(iClock_t));
-					NetworkUDPSend(sockFbSend,&ts,sizeof(ts));
-#else
-					dataInfo.len = ioPacket.len;
-					memcpy(dataInfo.data, ioPacket.data, ioPacket.len);
-					RingBufferPut(rbDataOut, &dataInfo);
-#endif // !IO_NETWORK_MODE
-				}
-				restBuffLen -= restPacketLen;
-				pBuff += restPacketLen;
-				// reset
-				recvHeadLen = 0; 
-			}
-			else
-			{
-				if (ioPacket.flag == 'R'|| ioPacket.flag == 'T')memcpy(pIoPacketData, pBuff, restBuffLen);
-				restPacketLen -= restBuffLen;
-				pIoPacketData += restBuffLen;
-				restBuffLen = 0;
 
+			temp = restSymbolLen - dataUnitHeadLen;
+			memcpy(&(dataUnit->flag), pSymbol, restSymbolLen >= dataUnitHeadLen ? dataUnitHeadLen : restSymbolLen);
+			if (temp >= 0) {
+				restDataLen = dataUnit->len;//é‡æ–°èµ‹å€¼restDataLen
+				pSymbol = temp > 0 ? pSymbol + dataUnitHeadLen : NULL;//æŒ‡é’ˆåç§»/è¡¨ç¤ºä¸€ä¸ªsymbolå·²ç»ç”¨å®Œäº†
+				//head over//refresh
+				restSymbolLen -= dataUnitHeadLen;
+				switchState = 1;//->get data
+				if (temp > 0) {
+					continue;
+				}
+				else {//new symbol
+					free(_symbol);
+					return;//ä¸€ä¸ªsymbolå¤„ç†å®Œäº†ï¼Œè¿˜æœªæ‹¼æ¥å¥½çš„dataUnitä¿å­˜åœ¨buffä¸­
+				}
+			}
+			else {
+				restHeadLen = dataUnitHeadLen - restSymbolLen;//ä¿å­˜ä¸‹æ¥ï¼Œä¸‹ä¸€æ¬¡ç»§ç»­è·å–å‰©ä¸‹çš„dataUintå¤´éƒ¨
+				//head not over//new symbol//refresh
+				switchState = 0;//->get head again
+				free(_symbol);
+				return;	//ä¸€ä¸ªsymbolå¤„ç†å®Œäº†ï¼Œè¿˜æœªæ‹¼æ¥å¥½çš„dataUnitä¿å­˜åœ¨buffä¸­	
+			}
+
+		case 1:	//get data
+			temp = restSymbolLen - restDataLen;
+			memcpy(dataUnit->data, pSymbol, restSymbolLen >= restDataLen ? restDataLen : restSymbolLen);
+			if (temp >= 0) {
+				pSymbol = temp > 0 ? pSymbol + restDataLen : NULL;//æŒ‡é’ˆåç§»/è¡¨ç¤ºä¸€ä¸ªsymbolå·²ç»ç”¨å®Œäº†
+				//data over//refresh
+				restSymbolLen -= restDataLen;
+				restDataLen = 0;//è¡¨ç¤ºä¸€ä¸ªunitå·²ç»æ‹¼æ¥å¥½äº†
+				sendDataLen = dataUnit->len;
+				NetworkUDPSend(sockOutput, dataUnit->data, sendDataLen);	//ç”¨Output Socketè¾“å‡ºdataUnité‡Œçš„data
+				switchState = 0;//->get head
+				if (temp > 0) {
+					continue;
+				}
+				else {//new symbol
+					free(_symbol);
+					return;
+				}
+			}
+			else {
+				pSymbol = NULL;//è¡¨ç¤ºä¸€ä¸ªsymbolå·²ç»ç”¨å®Œäº†
+				//new symbol//refresh
+				restDataLen -= restSymbolLen;//è¡¨ç¤ºè¿˜è¦ç»§ç»­è·å–ä¸‹ä¸€ä¸ªsymbolï¼ˆä¹Ÿå°±æ˜¯è·å–dataUnitæ•°æ®éƒ¨åˆ†çš„ä¸‹åŠéƒ¨åˆ†ï¼‰
+				switchState = 1;//get data again
+				free(_symbol);
+				return;
 			}
 		}
 	}
 }
-*/
+
 
 /*
 Name:	_IOInputThread
@@ -390,16 +279,16 @@ and store in input buffer.
 Parameter:
 Return:
 */
-//edited by ZhangYong
+//edited by ZhangYong   
 iThreadStdCall_t _IOInputThread(LPVOID lpParam)
 {
 	char aData = 0;
 #ifdef IO_NETWORK_MODE
-	uint8_t *dataBuff = (uint8_t*)malloc(MAX_UDP_DATA_SIZE ); //Ö¸ÕëÖ¸ÏòUDPÊı¾İ±¨ÖĞµÄÊı¾İ
+	uint8_t *UDPdataBuff = (uint8_t*)malloc(MAX_UDP_DATA_SIZE); //æŒ‡é’ˆæŒ‡å‘UDPæ•°æ®æŠ¥ä¸­çš„æ•°æ®
 #else
 	uint8_t *packetBuff = (uint8_t*)malloc(SYMBOL_SIZE + 3);
 #endif // IO_NETWORK_MODE
-	int16_t recvLen=0;//ÊÕµ½µÄUDPÊı¾İÊµ¼ÊµÄµÄ³¤¶È£¨²»°üº¬UDPÍ·²¿£©
+	int16_t recvLen = 0;//æ”¶åˆ°çš„UDPæ•°æ®å®é™…çš„çš„é•¿åº¦ï¼ˆä¸åŒ…å«UDPå¤´éƒ¨ï¼‰
 
 #ifndef IO_NETWORK_MODE 
 	IODataInfo_t dataInfo;
@@ -417,19 +306,13 @@ iThreadStdCall_t _IOInputThread(LPVOID lpParam)
 		//--------------------pack----------------------------------
 
 #ifdef IO_NETWORK_MODE
-		/*
-		recvLen = NetworkUDPReceive(sockInput, packetBuff + 3, SYMBOL_SIZE);	//put payload£¨ÓĞĞ§¸ºÔØ£¬¼´UDPµÄÊı¾İ²¿·Ö£© into the body of packet 
-		iClock_t ts = iGetTime();//¼ÓÒ»¸öÊ±¼ä´Átimestamp
-		memcpy(packetBuff + 3 + recvLen, &ts, sizeof(ts));//°ÑÊ±¼ä´Á4bytes·Åµ½packetBuff×îºóµÄËÄ¸ö×Ö½ÚÀïÃæ
-		recvLen += sizeof(ts);
-		*/
-		
-		recvLen = NetworkUDPReceive(sockInput, dataBuff, MAX_UDP_DATA_SIZE);	//put payload£¨ÓĞĞ§¸ºÔØ£¬¼´UDPµÄÊı¾İ²¿·Ö£© into the body of packet 
+		recvLen = NetworkUDPReceive(sockInput, UDPdataBuff, MAX_UDP_DATA_SIZE);	//put payloadï¼ˆæœ‰æ•ˆè´Ÿè½½ï¼Œå³UDPçš„æ•°æ®éƒ¨åˆ†ï¼‰ into the body of packet 
 		dataUnit_t *dataUnit = (dataUnit_t *)malloc(sizeof(dataUnit_t) + recvLen);
 		dataUnit->flag = 'R';
 		dataUnit->len = recvLen;
-		dataUnit->ts= iGetTime();//¼ÓÒ»¸öÊ±¼ä´Átimestamp
-		memcpy(dataUnit->data,dataBuff,recvLen);//°ÑÊ±¼ä´Á4bytes·Åµ½dataUnit_tÀïÃæ,³Ë2ÊÇÒòÎª×Ö½Ú¶ÔÆë
+		dataUnit->ts = iGetTime();//æ—¶é—´æˆ³timestamp
+		memcpy(dataUnit->data, UDPdataBuff, recvLen);//æŠŠæ—¶é—´æˆ³4bytesæ”¾åˆ°dataUnit_té‡Œé¢,ä¹˜2æ˜¯å› ä¸ºå­—èŠ‚å¯¹é½
+		RingBufferPut(rbDataUnit, &dataUnit);
 #else
 		RingBufferGet(rbDataIn, &dataInfo);
 		memcpy(packetBuff + 3, dataInfo.data, dataInfo.len);
@@ -437,16 +320,12 @@ iThreadStdCall_t _IOInputThread(LPVOID lpParam)
 #endif // IO_NETWORK_MODE
 
 #ifdef DEBUG_IO_IN_DATA
-		debug("[IO IN DATA]len=%d\r\n",recvLen);
+		debug("[IO IN DATA]len=%d\r\n", recvLen);
 #endif // DEBUG_IO_IN_DATA
-
-		iMutexLock(mutexPack);
-		//_IOPack('R', recvLen, packetBuff);//TODO:¸Ä³É getblock ºÍ attachsymbolº¯Êı
-		iMutexUnlock(mutexPack);
 
 #endif // _IO_TEST_
 	}
-	free(dataBuff);
+	free(UDPdataBuff);
 	return 0;
 }
 
@@ -456,7 +335,7 @@ Description: The thread of Input interface. It receive RTCP_data from socket
 and store in input buffer.
 Parameter:
 Return:
-*/
+
 iThreadStdCall_t _IOInput_RTCP_Thread(LPVOID lpParam)
 {
 	char aData = 0;
@@ -501,7 +380,7 @@ iThreadStdCall_t _IOInput_RTCP_Thread(LPVOID lpParam)
 #endif // DEBUG_IO_IN_DATA
 
 		iMutexLock(mutexPack);
-		_IOPack('T', recvLen, packetBuff);
+		//_IOPack('T', recvLen, packetBuff);//ä¸çŸ¥é“è¯¥æ€ä¹ˆæ”¹ã€‚
 		iMutexUnlock(mutexPack);
 
 #endif // _IO_TEST_
@@ -509,14 +388,14 @@ iThreadStdCall_t _IOInput_RTCP_Thread(LPVOID lpParam)
 	free(packetBuff);
 	return 0;
 }
-
+*/
 /*
 Name:	_OUT_RTCP_Forward_Thread
 Description: The thread of RTCP_Back interface. It send data by socket
 from rbRTCP_Back buffer.
 Parameter:
 Return:
-*/
+
 
 iThreadStdCall_t _OUT_RTCP_Forward_Thread(LPVOID lpParam)	// edited by fanli
 {
@@ -541,26 +420,27 @@ iThreadStdCall_t _IN_RTCP_Forward_Thread(LPVOID lpParam)
 	}
 	return 0;
 }
+*/
 /*
 Name:	_IN_RTCP_Back_Thread
 Description: The thread of RTCP_Back interface. It send data by socket
 from rbRTCP_Back buffer.
 Parameter:
 Return:
-*/
+
 
 iThreadStdCall_t _IN_RTCP_Back_Thread(LPVOID lpParam)
 {
 	int16_t recvLen = 0;
 	uint8_t *IN_RTCP_Back_Buff = (uint8_t*)malloc(SYMBOL_SIZE);
-	while (stateRun){
+	while (stateRun) {
 		recvLen = NetworkUDPReceive(sock_IN_RTCP_Back, IN_RTCP_Back_Buff, SYMBOL_SIZE);
-		if(recvLen)
+		if (recvLen)
 			NetworkUDPSend(sock_TX_RTCP_Back, IN_RTCP_Back_Buff, recvLen);
-		}
+	}
 	return 0;
 }
-
+*/
 
 /*
 Name:	_OUT_RTCP_Back_Thread
@@ -568,7 +448,6 @@ Description: The thread of RTCP_Back interface. It send data by socket
 from rbRTCP_Back buffer.
 Parameter:
 Return:
-*/
 
 iThreadStdCall_t _OUT_RTCP_Back_Thread(LPVOID lpParam)	// edited by fanli
 {
@@ -581,7 +460,7 @@ iThreadStdCall_t _OUT_RTCP_Back_Thread(LPVOID lpParam)	// edited by fanli
 	}
 	return 0;
 }
-
+*/
 
 
 /*
@@ -591,6 +470,7 @@ from output buffer.
 Parameter:
 Return:
 */
+//edited by ZhangYong
 iThreadStdCall_t _IOOutputThread(LPVOID lpParam)
 {
 
@@ -604,7 +484,7 @@ iThreadStdCall_t _IOOutputThread(LPVOID lpParam)
 		RingBufferGet(rbOut, pSymbol);
 
 #ifdef _IO_TEST_
-		for (int i=0; i < SYMBOL_SIZE; i++){	//unpack
+		for (int i = 0; i < SYMBOL_SIZE; i++) {	//unpack
 
 #ifndef FAKE_RAPTORQ
 			assert(pSymbol[i] == aData);
@@ -613,8 +493,8 @@ iThreadStdCall_t _IOOutputThread(LPVOID lpParam)
 		}
 #else
 		//--------------------unpack-------------------------------
-		_IOUnpack(pSymbol);
-
+		dataUnit_t *dataUnit = (dataUnit_t *)malloc(sizeof(dataUnit_t) + MAX_UDP_DATA_SIZE);  //æš‚æ—¶ä¿å­˜å°†è¦è¾“å‡ºçš„unit 
+		DetachSymbol(pSymbol, dataUnit);
 #endif // _IO_TEST_
 
 	}
@@ -623,64 +503,13 @@ iThreadStdCall_t _IOOutputThread(LPVOID lpParam)
 }
 
 iThreadStdCall_t _FbChecherThread(LPVOID lpParam) {
-	
+
 	iClock_t ts;
 	while (1)
 	{
 		NetworkUDPReceive(sockFbRecv, &ts, sizeof(ts));
 		debug("[netDataFb] delay=%ld \r\n", iGetTime() - ts);
 	}
-}
-/*
-Name:	IOInputDataGetBlock
-Description: Get a block of data from the Input interface.
-Parameter:
-@_pBlock : a pointer store one block of data.
-Return:
-*/
-uint32_t IOInputDataGetBlock(ringBuffer_t *_pRb,uint8_t* _pBlock,uint32_t _tag,uint8_t _foreBSN)
-{
-	uint8_t *pGet = _pBlock;
-
-	uint32_t esi=0;
-	bool	isBreak = false;
-	//WaitForSingleObject(mutexInputDataGet, INFINITE);
-	// get the first symbol and record the start time.
-	RingBufferGet(rbIn, pGet);
-	iClock_t tt = iGetTime();
-
-	iRaptorQPack(_pRb, pGet, _tag, esi,_foreBSN);
-	pGet += SYMBOL_SIZE;
-	//geti the rest of symbols, the whole time is less than 10ms
-	for (esi = 1; esi < BLOCK_SYMBOL_NUMBER; esi++)
-	{
-		while (!RingBufferTryGet(rbIn, pGet)) {
-			if (iGetTime() - tt >= BLOCK_TIME) {
-				isBreak = true;
-				break;
-			}
-			iSleep(1);
-		}
-	
-		if(isBreak==false){
-			iRaptorQPack(_pRb, pGet, _tag, esi,_foreBSN);
-			pGet += SYMBOL_SIZE;
-		}
-		else{
-			break;
-		}
-	}
-	//iMutexUnlock(mutexInputDataGet);
-
-#ifdef DEBUG_ONE_BLOCK
-	debug("[ONE BLOCK] blockSymbolNumber=%d \r\n", esi);
-#endif // DEBUG_ONE_BLOCK
-
-#ifdef DEBUG_TT
-	debug("[TT]%d\r\n", iGetTime()-tt);
-#endif // DEBUG_TT
-
-	return esi;
 }
 
 /*
@@ -690,7 +519,7 @@ Parameter:
 @_pBlock : a pointer store one block of data.
 Return:
 */
-uint32_t IOOutputDataPutBlock(int _command, uint8_t* _pData,uint32_t blockSymbolNumber)
+uint32_t IOOutputDataPutBlock(int _command, uint8_t* _pData, uint32_t blockSymbolNumber)
 {
 	uint8_t *pPut = _pData;
 	raptorQPacket_t *pPacket = (raptorQPacket_t *)_pData;
@@ -700,7 +529,7 @@ uint32_t IOOutputDataPutBlock(int _command, uint8_t* _pData,uint32_t blockSymbol
 	{
 	case PUT_BLOCK_START:
 		esiExpect = 0;
-	break;
+		break;
 	case PUT_BLOCK_CURRENT:
 #ifdef DEBUG_out_a
 		debug("[out a] symbol: esiExpect=%d id=%d tag=%d\r\n", esiExpect, pPacket->id, pPacket->tag);
@@ -710,23 +539,23 @@ uint32_t IOOutputDataPutBlock(int _command, uint8_t* _pData,uint32_t blockSymbol
 			RingBufferPut(rbOut, pPacket->data);
 			esiExpect++;
 		};
-	break;
+		break;
 	case PUT_BLOCK_REST:
 		pPut = _pData + esiExpect*SYMBOL_SIZE;
-		for (uint32_t i = esiExpect; i < blockSymbolNumber; i++){
+		for (uint32_t i = esiExpect; i < blockSymbolNumber; i++) {
 			RingBufferPut(rbOut, pPut);
 #ifdef DEBUG_out_b
 			debug("[out b] symbol: i=%d\r\n", i);
 #endif // DEBUG_out_b
 			pPut += SYMBOL_SIZE;
 		}
-	break;
+		break;
 
 	}
 	iMutexUnlock(mutexOutputDataPut);
 	return esiExpect;
 }
-void IOOutputDataPutSymbol(uint8_t *pPut) 
+void IOOutputDataPutSymbol(uint8_t *pPut)
 {
 	RingBufferPut(rbOut, pPut);
 }
@@ -736,19 +565,20 @@ Description: Initialize the Input interface.
 Parameter:
 Return:
 */
+
 void IOInputInit()
 {
 	/* initialize value */
 	/* initialize lock */
-
-	iCreateMutex(mutexInputDataGet,false);
+	rbDataUnit = RingBufferInit(900, sizeof(dataUnit_t*));   //add for test
+	iCreateMutex(mutexInputDataGet, false);
 
 	iCreateMutex(mutexPack, false);
 	/* initialize ring buffer */
 	rbIn = RingBufferInit(IO_INPUT_RBUFF_NUMBER, SYMBOL_SIZE);
 
 #ifndef IO_NETWORK_MODE
-	rbDataIn = RingBufferInit(50,sizeof(IODataInfo_t));
+	rbDataIn = RingBufferInit(50, sizeof(IODataInfo_t));
 #endif // !IO_NETWORK_MODE
 
 	/* create and set up socket */
@@ -756,19 +586,20 @@ void IOInputInit()
 #ifdef IO_NETWORK_MODE
 	netAddr_t addrSend, addrRecv;
 	strcpy(addrSend.ip, "127.0.0.1");
-	addrSend.port = PORT_IO_INPUT+1;
+	addrSend.port = PORT_IO_INPUT + 1;
+
 	strcpy(addrRecv.ip, "127.0.0.1");
 	addrRecv.port = PORT_IO_INPUT;
 
-	sockInput=NetworkUDPInit(&addrRecv, NULL);
-#ifdef IO_RTCP_INPUT		//
-	strcpy(addrSend.ip, "127.0.0.1");
-	addrSend.port = PORT_IO_RTCP_INPUT;//
-	strcpy(addrRecv.ip, "127.0.0.1");
-	addrRecv.port = PORT_IO_RTCP_INPUT;
-
-	sock_RTCP_Input = NetworkUDPInit(&addrRecv, NULL);
-#endif
+	sockInput = NetworkUDPInit(&addrRecv, NULL);
+//#ifdef IO_RTCP_INPUT		//
+//	strcpy(addrSend.ip, "127.0.0.1");
+//	addrSend.port = PORT_IO_RTCP_INPUT;//
+//	strcpy(addrRecv.ip, "127.0.0.1");
+//	addrRecv.port = PORT_IO_RTCP_INPUT;
+//
+//	sock_RTCP_Input = NetworkUDPInit(&addrRecv, NULL);
+//#endif
 	strcpy(addrSend.ip, IP_RX_0);
 	addrSend.port = 3510;
 	strcpy(addrRecv.ip, IP_TX_0);
@@ -780,11 +611,11 @@ void IOInputInit()
 	/* run threads */
 	iCreateThread(hThreadIOInput, _IOInputThread, NULL);  // returns the thread identifier  
 
-#ifdef IO_RTCP_INPUT
-	iCreateThread(hThreadIO_RTCP_Input, _IOInput_RTCP_Thread, NULL);  // returns the thread identifier  
-#endif
+//#ifdef IO_RTCP_INPUT
+//	iCreateThread(hThreadIO_RTCP_Input, _IOInput_RTCP_Thread, NULL);  // returns the thread identifier  
+//#endif
 
-	iCreateThread(hThreadAutoFill, _AutoFillThread, NULL);  // returns the thread identifier 
+																	  //iCreateThread(hThreadAutoFill, _AutoFillThread, NULL);  // returns the thread identifier 
 
 #ifdef IO_NETWORK_MODE
 	iCreateThread(hThreadFbChecher, _FbChecherThread, NULL);  // returns the thread identifier 
@@ -797,36 +628,35 @@ Name:	RTCP_Forward_Send_Init
 Description: Initialize the Output interface.
 Parameter:
 Return:
-*/
+
 void RTCP_Forward_Send_Init()
 {
 	/* initialize ring buffer */
 	// rbRTCP_Back = RingBufferInit(IO_RTCP_Back_RBUFF_NUMBER, RTCP_SIZE);
-	netAddr_t addrSend, addrRecv;
+/*	netAddr_t addrSend, addrRecv;
 	strcpy(addrSend.ip, "127.0.0.1");
 	addrSend.port = PORT_IO_RTCP_INPUT;
 	strcpy(addrRecv.ip, "127.0.0.1");
 	addrRecv.port = PORT_IO_RTCP_OUTPUT + 1;
 	sock_IN_RTCP_Forward = NetworkUDPInit(&addrSend, NULL);
 	/* run threads *///sock_TX_RTCP_Back
-	strcpy(addrSend.ip, IP_TX_0);
-	addrSend.port = PORT_IO_RTCP_INPUT ;
+/*	strcpy(addrSend.ip, IP_TX_0);
+	addrSend.port = PORT_IO_RTCP_INPUT;
 	strcpy(addrRecv.ip, IP_RX_0);
-	addrRecv.port = PORT_IO_RTCP_OUTPUT ;
+	addrRecv.port = PORT_IO_RTCP_OUTPUT;
 	sock_TX_RTCP_Forward = NetworkUDPInit(&addrSend, &addrRecv);
 	iCreateThread(hThreadIN_RTCP_Forward, _IN_RTCP_Forward_Thread, NULL);  // returns the thread identifier 
 }
-//
-
+*/
 /*
 Name:	RTCP_Forward_Recv_Init
 Description: Initialize the Output interface.
 Parameter:
 Return:
-*/
+
 void RTCP_Forward_Recv_Init()
 {
-	/* initialize ring buffer */
+	/* initialize ring buffer 
 	// rbRTCP_Back = RingBufferInit(IO_RTCP_Back_RBUFF_NUMBER, RTCP_SIZE);
 	netAddr_t addrSend, addrRecv;
 	strcpy(addrSend.ip, "127.0.0.1");
@@ -835,64 +665,65 @@ void RTCP_Forward_Recv_Init()
 	addrRecv.port = PORT_IO_RTCP_OUTPUT;
 	sock_OUT_RTCP_Forward = NetworkUDPInit(&addrSend, &addrRecv);
 	/* run threads *///sock_TX_RTCP_Back
-	strcpy(addrSend.ip, IP_TX_0);
-	addrSend.port = PORT_IO_RTCP_OUTPUT ;
+/* 	strcpy(addrSend.ip, IP_TX_0);
+	addrSend.port = PORT_IO_RTCP_OUTPUT;
 	strcpy(addrRecv.ip, IP_RX_0);
-	addrRecv.port = PORT_IO_RTCP_INPUT ;
+	addrRecv.port = PORT_IO_RTCP_INPUT;
 	sock_RX_RTCP_Forward = NetworkUDPInit(&addrRecv, &addrSend);
 	iCreateThread(hThreadOUT_RTCP_Forward, _OUT_RTCP_Forward_Thread, NULL);  // returns the thread identifier 
 }
-
+/*
 
 /*
 Name:	RTCP_Back_Send_Init
 Description: Initialize the Output interface.
 Parameter:
 Return:
-*/
+
 void RTCP_Back_Send_Init()
 {
 	/* initialize ring buffer */
-   // rbRTCP_Back = RingBufferInit(IO_RTCP_Back_RBUFF_NUMBER, RTCP_SIZE);
-	netAddr_t addrSend, addrRecv;
+	// rbRTCP_Back = RingBufferInit(IO_RTCP_Back_RBUFF_NUMBER, RTCP_SIZE);
+/*	netAddr_t addrSend, addrRecv;
 	strcpy(addrSend.ip, "127.0.0.1");
 	addrSend.port = PORT_IO_RTCP_OUTPUT;
 	strcpy(addrRecv.ip, "127.0.0.1");
-	addrRecv.port = PORT_IO_RTCP_INPUT+1;
+	addrRecv.port = PORT_IO_RTCP_INPUT + 1;
 	sock_IN_RTCP_Back = NetworkUDPInit(&addrSend, NULL);
 	/* run threads *///sock_TX_RTCP_Back
-	strcpy(addrSend.ip, IP_RX_0);
+/*	strcpy(addrSend.ip, IP_RX_0);
 	addrSend.port = PORT_IO_RTCP_OUTPUT + 1;
 	strcpy(addrRecv.ip, IP_TX_0);
 	addrRecv.port = PORT_IO_RTCP_INPUT + 1;
 	sock_TX_RTCP_Back = NetworkUDPInit(&addrSend, &addrRecv);
-    iCreateThread(hThreadIN_RTCP_Back, _IN_RTCP_Back_Thread, NULL);  // returns the thread identifier 
-} 
-
+	iCreateThread(hThreadIN_RTCP_Back, _IN_RTCP_Back_Thread, NULL);  // returns the thread identifier 
+}
+*/
 /*
 Name:	RTCP_Back_Recv_Init
 Description: Initialize the Output interface.
 Parameter:
 Return:
-*/
+
 void RTCP_Back_Recv_Init()
 {
 	/* initialize ring buffer */
 	// rbRTCP_Back = RingBufferInit(IO_RTCP_Back_RBUFF_NUMBER, RTCP_SIZE);
-	netAddr_t addrSend, addrRecv;
+	/*	netAddr_t addrSend, addrRecv;
 	strcpy(addrSend.ip, "127.0.0.1");
-	addrSend.port = PORT_IO_RTCP_INPUT-3;
+	addrSend.port = PORT_IO_RTCP_INPUT - 3;
 	strcpy(addrRecv.ip, "127.0.0.1");
 	addrRecv.port = PORT_IO_RTCP_INPUT;
 	sock_OUT_RTCP_Back = NetworkUDPInit(&addrSend, &addrRecv);
 	/* run threads *///sock_TX_RTCP_Back
-	strcpy(addrSend.ip, IP_RX_0);
+	/*	strcpy(addrSend.ip, IP_RX_0);
 	addrSend.port = PORT_IO_RTCP_OUTPUT + 1;
 	strcpy(addrRecv.ip, IP_TX_0);
 	addrRecv.port = PORT_IO_RTCP_INPUT + 1;
 	sock_RX_RTCP_Back = NetworkUDPInit(&addrRecv, &addrSend);
 	iCreateThread(hThreadOUT_RTCP_Back, _OUT_RTCP_Back_Thread, NULL);  // returns the thread identifier 
 }
+*/
 
 /*
 Name:	IOOutputInit
@@ -905,7 +736,7 @@ void IOOutputInit()
 	/* initialize value */
 
 	/* initialize lock */
-	iCreateMutex(mutexOutputDataPut,false);
+	iCreateMutex(mutexOutputDataPut, false);
 
 	/* initialize ring buffer */
 	rbOut = RingBufferInit(IO_OUTPUT_RBUFF_NUMBER, SYMBOL_SIZE);
@@ -918,17 +749,16 @@ void IOOutputInit()
 #ifdef IO_NETWORK_MODE
 	netAddr_t addrSend, addrRecv;
 	strcpy(addrSend.ip, "127.0.0.1");
-    //addrSend.port = PORT_IO_OUTPUT+1;  //edited by fanli
 	addrSend.port = PORT_IO_OUTPUT - 1;
 	strcpy(addrRecv.ip, "127.0.0.1");
 	addrRecv.port = PORT_IO_OUTPUT;
 	sockOutput = NetworkUDPInit(&addrSend, &addrRecv);
 
-	strcpy(addrSend.ip, "127.0.0.1");  //edited by fanli
-	addrSend.port = PORT_IO_OUTPUT - 3;
-	strcpy(addrRecv.ip, "127.0.0.1");
-	addrRecv.port = PORT_IO_RTCP_OUTPUT;
-	sock_RTCP_Output = NetworkUDPInit(&addrSend, &addrRecv);
+	//strcpy(addrSend.ip, "127.0.0.1");  //edited by fanli
+	//addrSend.port = PORT_IO_OUTPUT - 3;
+	//strcpy(addrRecv.ip, "127.0.0.1");
+	//addrRecv.port = PORT_IO_RTCP_OUTPUT;
+	//sock_RTCP_Output = NetworkUDPInit(&addrSend, &addrRecv);
 
 	strcpy(addrSend.ip, IP_RX_0);
 	addrSend.port = 3510;
@@ -940,7 +770,7 @@ void IOOutputInit()
 #endif // !_IO_TEST_
 
 	/* run threads */
-	iCreateThread(hThreadIOOutput,_IOOutputThread, NULL);  // returns the thread identifier 
+	iCreateThread(hThreadIOOutput, _IOOutputThread, NULL);  // returns the thread identifier 
 
 }
 
@@ -956,8 +786,8 @@ void IOInputDeInit()
 	stateRun = false;
 	iThreadJoin(hThreadIOInput);
 	iThreadClose(hThreadIOInput);
-	iThreadJoin(hThreadAutoFill);
-	iThreadClose(hThreadAutoFill);
+	//iThreadJoin(hThreadAutoFill);
+	//iThreadClose(hThreadAutoFill);
 	/* destory ring buffer */
 	RingBufferDestroy(rbIn);
 	/* destory lock */
